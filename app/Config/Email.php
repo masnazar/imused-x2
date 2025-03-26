@@ -4,118 +4,179 @@ namespace Config;
 
 use CodeIgniter\Config\BaseConfig;
 
+/**
+ * Kelas konfigurasi Email untuk CodeIgniter.
+ * Digunakan untuk mengatur parameter pengiriman email.
+ * 
+ * @package Config
+ */
 class Email extends BaseConfig
 {
-    public string $fromEmail  = '';
-    public string $fromName   = '';
+    /**
+     * Alamat email pengirim.
+     *
+     * @var string
+     */
+    public string $fromEmail = '';
+
+    /**
+     * Nama pengirim yang akan tampil di email.
+     *
+     * @var string
+     */
+    public string $fromName = '';
+
+    /**
+     * Daftar penerima email (opsional).
+     *
+     * @var string
+     */
     public string $recipients = '';
 
     /**
-     * The "user agent"
+     * User agent untuk identifikasi email.
+     *
+     * @var string
      */
     public string $userAgent = 'CodeIgniter';
 
     /**
-     * The mail sending protocol: mail, sendmail, smtp
+     * Protokol pengiriman email: mail, sendmail, atau smtp.
+     *
+     * @var string
      */
     public string $protocol = 'mail';
 
     /**
-     * The server path to Sendmail.
+     * Path untuk sendmail (digunakan jika protokol adalah sendmail).
+     *
+     * @var string
      */
     public string $mailPath = '/usr/sbin/sendmail';
 
     /**
-     * SMTP Server Hostname
+     * Host server SMTP (digunakan jika protokol adalah smtp).
+     *
+     * @var string
      */
     public string $SMTPHost = '';
 
     /**
-     * SMTP Username
+     * Username SMTP (digunakan jika protokol adalah smtp).
+     *
+     * @var string
      */
     public string $SMTPUser = '';
 
     /**
-     * SMTP Password
+     * Password SMTP (digunakan jika protokol adalah smtp).
+     *
+     * @var string
      */
     public string $SMTPPass = '';
 
     /**
-     * SMTP Port
+     * Port SMTP (25, 465, 587, dll).
+     *
+     * @var int
      */
     public int $SMTPPort = 25;
 
     /**
-     * SMTP Timeout (in seconds)
+     * Batas waktu koneksi SMTP (dalam detik).
+     *
+     * @var int
      */
     public int $SMTPTimeout = 5;
 
     /**
-     * Enable persistent SMTP connections
+     * Menentukan apakah koneksi SMTP tetap dipertahankan.
+     *
+     * @var bool
      */
     public bool $SMTPKeepAlive = false;
 
     /**
-     * SMTP Encryption.
+     * Jenis enkripsi SMTP: '', 'tls', atau 'ssl'.
      *
-     * @var string '', 'tls' or 'ssl'. 'tls' will issue a STARTTLS command
-     *             to the server. 'ssl' means implicit SSL. Connection on port
-     *             465 should set this to ''.
+     * @var string
      */
     public string $SMTPCrypto = 'tls';
 
     /**
-     * Enable word-wrap
+     * Apakah baris teks di dalam email akan dipecah.
+     *
+     * @var bool
      */
     public bool $wordWrap = true;
 
     /**
-     * Character count to wrap at
+     * Panjang maksimal baris teks sebelum terpecah.
+     *
+     * @var int
      */
     public int $wrapChars = 76;
 
     /**
-     * Type of mail, either 'text' or 'html'
+     * Jenis isi email: 'text' atau 'html'.
+     *
+     * @var string
      */
     public string $mailType = 'text';
 
     /**
-     * Character set (utf-8, iso-8859-1, etc.)
+     * Karakter set yang digunakan (UTF-8, ISO-8859-1, dll).
+     *
+     * @var string
      */
     public string $charset = 'UTF-8';
 
     /**
-     * Whether to validate the email address
+     * Validasi otomatis alamat email.
+     *
+     * @var bool
      */
     public bool $validate = false;
 
     /**
-     * Email Priority. 1 = highest. 5 = lowest. 3 = normal
+     * Prioritas email (1 = tertinggi, 5 = terendah).
+     *
+     * @var int
      */
     public int $priority = 3;
 
     /**
-     * Newline character. (Use “\r\n” to comply with RFC 822)
+     * Karakter newline untuk mematuhi RFC 822.
+     *
+     * @var string
      */
     public string $CRLF = "\r\n";
 
     /**
-     * Newline character. (Use “\r\n” to comply with RFC 822)
+     * Karakter newline untuk mematuhi RFC 822.
+     *
+     * @var string
      */
     public string $newline = "\r\n";
 
     /**
-     * Enable BCC Batch Mode.
+     * Mengaktifkan mode BCC batch.
+     *
+     * @var bool
      */
     public bool $BCCBatchMode = false;
 
     /**
-     * Number of emails in each BCC batch
+     * Jumlah email per batch BCC.
+     *
+     * @var int
      */
     public int $BCCBatchSize = 200;
 
     /**
-     * Enable notify message from server
+     * Mengaktifkan notifikasi dari server (Delivery Status Notification).
+     *
+     * @var bool
      */
     public bool $DSN = false;
 }

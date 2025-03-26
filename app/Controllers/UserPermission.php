@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\UserModel;
 use App\Models\PermissionModel;
 use CodeIgniter\Controller;
+use App\Repositories\PermissionRepository;
 
 class UserPermission extends Controller
 {
@@ -12,6 +13,7 @@ class UserPermission extends Controller
     protected $userModel;
     protected $permissionModel;
     protected $permissionService;
+    protected $permissionRepo;
 
     public function __construct()
     {
@@ -19,23 +21,31 @@ class UserPermission extends Controller
         $this->userModel = new UserModel();
         $this->permissionModel = new PermissionModel();
         $this->permissionService = new \App\Services\PermissionService(); // kalau ada service-nya
+        $this->permissionRepo = new PermissionRepository();
     }
 
     /**
      * 📌 Menampilkan daftar user & assign permission
      */
     public function index()
-    {
-        // Cek role admin
-        if (session('role_id') != 1) {
-            return redirect()->to('/dashboard')->with('error', 'Akses ditolak!');
-        }
-
-        $users = (new UserModel())->findAll();
-        $permissions = (new PermissionModel())->findAll();
-
-        return view('permissions/assign_user', compact('users', 'permissions'));
+{
+    if (session('role_id') != 1) {
+        return redirect()->to('/dashboard')->with('error', 'Akses ditolak!');
     }
+
+    $users = $this->userModel->findAll();
+    $permissions = $this->permissionModel->findAll();
+
+    $selectedUserId = $this->request->getGet('user_id');
+    $userPermissions = [];
+
+    if ($selectedUserId) {
+        $userPermissions = $this->permissionService->getPermissionsByUserId($selectedUserId);
+    }
+
+    return view('permissions/assign_user', compact('users', 'permissions', 'selectedUserId', 'userPermissions'));
+}
+
 
     /**
      * 📌 Ambil permission user via AJAX
@@ -88,12 +98,8 @@ class UserPermission extends Controller
     log_message('debug', '👤 User ID dipilih: ' . $userId);
     log_message('debug', '✅ Permissions yang dipilih: ' . json_encode($userPermissions));
 
-    return view('permissions/assign_user', [
-        'users' => $users,
-        'permissions' => $allPermissions,
-        'selectedUserId' => $userId,
-        'userPermissions' => $userPermissions,
-    ]);
+    return redirect()->to('/permissions/assign-user?user_id=' . $userId)->with('success', 'Permission berhasil diperbarui!');
+
 }
 
 

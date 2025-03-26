@@ -4,15 +4,35 @@ namespace App\Services;
 
 use App\Models\AuditLogModel;
 
+/**
+ * Service untuk mencatat log audit ke dalam database.
+ */
 class AuditLogService
 {
+    /**
+     * @var AuditLogModel Model untuk tabel audit log.
+     */
     protected $auditLogModel;
 
+    /**
+     * Konstruktor untuk inisialisasi model AuditLogModel.
+     */
     public function __construct()
     {
         $this->auditLogModel = new AuditLogModel();
     }
 
+    /**
+     * Mencatat log audit ke dalam database.
+     *
+     * @param int|null $userId ID pengguna yang melakukan aksi (opsional).
+     * @param string $model Nama model yang terkait dengan log.
+     * @param int $modelId ID dari model yang terkait.
+     * @param string $action Aksi yang dilakukan (misalnya: 'create', 'update', 'delete').
+     * @param mixed|null $oldData Data lama sebelum perubahan (opsional).
+     * @param mixed|null $newData Data baru setelah perubahan (opsional).
+     * @return bool True jika log berhasil disimpan, false jika gagal.
+     */
     public function log(
         int $userId = null,
         string $model,
@@ -22,6 +42,7 @@ class AuditLogService
         $newData = null
     ): bool {
         try {
+            // Data yang akan disimpan ke tabel audit log
             $data = [
                 'user_id'    => $userId,
                 'model'      => $model,
@@ -34,15 +55,25 @@ class AuditLogService
                 'created_at' => date('Y-m-d H:i:s'),
             ];
 
+            // Log data untuk debugging
             log_message('debug', 'Audit Log Data: ' . print_r($data, true));
-            // Explicitly specify the column names in the insert query
+
+            // Simpan data ke database
             return $this->auditLogModel->insert($data);
         } catch (\Exception $e) {
+            // Log error jika terjadi kesalahan
             log_message('error', 'Audit Log Error: ' . $e->getMessage());
             return false;
         }
     }
 
+    /**
+     * Mengambil log audit berdasarkan model dan ID model.
+     *
+     * @param string $model Nama model yang terkait dengan log.
+     * @param int $modelId ID dari model yang terkait.
+     * @return array Daftar log audit yang ditemukan.
+     */
     public function getLogsForModel(string $model, int $modelId)
     {
         return $this->auditLogModel

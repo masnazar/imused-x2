@@ -49,8 +49,13 @@ $routes->group('', function ($routes) {
  * yang dapat mengakses halaman ini.
  */
 $routes->group('', ['filter' => 'auth'], function ($routes) {
+    // Halaman utama
     $routes->get('/', 'Home::index');
+
+    // Dashboard
     $routes->get('/dashboard', 'Dashboard::index');
+
+    // Profil pengguna
     $routes->get('/profile', 'Profile::edit');
     $routes->post('/profile/update', 'Profile::update');
     $routes->post('profile/update-password', 'Profile::updatePassword');
@@ -96,7 +101,6 @@ $routes->group('suppliers', ['filter' => 'auth'], function ($routes) {
     ]);
 });
 
-
 /**
  * 📌 Routes untuk Halaman Admin
  * 
@@ -104,13 +108,20 @@ $routes->group('suppliers', ['filter' => 'auth'], function ($routes) {
  * (Administrator) yang dapat mengakses halaman ini.
  */
 $routes->group('', ['filter' => 'admin'], function ($routes) {
+    // Halaman pengaturan utama
     $routes->get('settings', 'Setting::index', ['as' => 'settings.index']);
 
+    // Grup pengaturan
     $routes->group('settings', function ($routes) {
+        // Pengaturan sistem
         $routes->get('system', 'Setting::systemConfig', ['as' => 'settings.system']);
         $routes->post('system/update', 'Setting::updateSystemConfig', ['as' => 'settings.system.update']);
+
+        // Pengaturan email
         $routes->get('email', 'Setting::emailConfig', ['as' => 'settings.email']);
         $routes->post('email/update', 'Setting::updateEmailConfig', ['as' => 'settings.email.update']);
+
+        // Pengaturan keamanan
         $routes->get('security', 'Setting::securityConfig', ['as' => 'settings.security']);
         $routes->post('security/update', 'Setting::updateSecurityConfig', ['as' => 'settings.security.update']);
     });
@@ -123,15 +134,25 @@ $routes->group('', ['filter' => 'admin'], function ($routes) {
  * mengakses halaman ini.
  */
 $routes->group('permissions', ['filter' => 'admin'], function ($routes) {
+    // Daftar permission
     $routes->get('/', 'Permission::index', ['as' => 'permissions.index']);
+
+    // Menambahkan permission
     $routes->get('create', 'Permission::create', ['as' => 'permissions.create']);
     $routes->post('store', 'Permission::store', ['as' => 'permissions.store']);
+
+    // Mengedit permission
     $routes->get('edit/(:num)', 'Permission::edit/$1', ['as' => 'permissions.edit']);
     $routes->post('update/(:num)', 'Permission::update/$1', ['as' => 'permissions.update']);
+
+    // Menghapus permission
     $routes->post('delete/(:num)', 'Permission::delete/$1', ['as' => 'permissions.delete']);
-    $routes->get('get_assigned_permissions/(:num)', 'Permission::getAssignedPermissions/$1', ['as' => 'permissions.getAssigned']);
+
+    // Mengelola role dan permission
     $routes->get('roles', 'Permission::manageRoles', ['as' => 'permissions.roles']);
     $routes->post('roles/update', 'Permission::updateRolePermissions', ['as' => 'permissions.roles.update']);
+
+    // Assign permission ke user
     $routes->get('assign', 'Permission::assign', ['as' => 'permissions.assign']);
     $routes->post('assign_process', 'Permission::assignProcess', ['as' => 'permissions.assign_process']);
 });
@@ -143,11 +164,18 @@ $routes->group('permissions', ['filter' => 'admin'], function ($routes) {
  * yang dapat mengakses halaman ini.
  */
 $routes->group('roles', ['filter' => 'role:Administrator,Manager'], function ($routes) {
+    // Daftar role
     $routes->get('/', 'Role::index', ['as' => 'roles.index']);
+
+    // Menambahkan role
     $routes->get('create', 'Role::create', ['as' => 'roles.create']);
     $routes->post('store', 'Role::store', ['as' => 'roles.store']);
+
+    // Mengedit role
     $routes->get('edit/(:num)', 'Role::edit/$1', ['as' => 'roles.edit']);
     $routes->post('update/(:num)', 'Role::update/$1', ['as' => 'roles.update']);
+
+    // Menghapus role
     $routes->post('delete/(:num)', 'Role::delete/$1', ['as' => 'roles.delete']);
 });
 
@@ -191,7 +219,6 @@ $routes->group('brands', ['filter' => 'auth'], function ($routes) {
     ]);
 });
 
-
 /**
  * 📌 Routes untuk Modul Produk
  * 
@@ -230,7 +257,6 @@ $routes->group('products', ['filter' => 'role:Administrator,Manager'], function 
         'filter' => 'permission:delete_product'
     ]);
 });
-
 
 /**
  * 📌 Routes untuk Modul Gudang
@@ -301,7 +327,6 @@ $routes->group('inventory', ['filter' => 'auth'], function ($routes) {
         'filter' => 'permission:view_inventory'
     ]);
 });
-
 
 /**
  * 📌 Routes untuk Modul Purchase Order
@@ -374,12 +399,19 @@ $routes->group('purchase-orders', ['filter' => 'auth'], function ($routes) {
 
 /**
  * 📌 API Routes
+ * 
+ * Endpoint untuk kebutuhan API.
  */
 $routes->get('api/get-product-sku/(:num)', 'PurchaseOrder::get_product_sku/$1');
 
+/**
+ * 📌 Routes untuk Assign Permission ke User
+ * 
+ * Middleware `admin` memastikan hanya Administrator yang dapat
+ * mengakses halaman ini.
+ */
 $routes->group('permissions', ['filter' => 'admin'], function ($routes) {
-    $routes->get('user-assign', 'UserPermission::index');
-    $routes->get('user-permissions/(:num)', 'UserPermission::getUserPermissions/$1');
+    $routes->get('assign-user', 'UserPermission::index');
     $routes->post('assign-user', 'UserPermission::assign');
+    $routes->get('user-permissions/(:num)', 'UserPermission::getUserPermissions/$1');
 });
-

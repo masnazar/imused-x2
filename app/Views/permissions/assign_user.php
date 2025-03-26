@@ -23,11 +23,13 @@
 <div class="card custom-card">
     <div class="card-body">
 
-    <?php
-    $selectedUserId = $selectedUserId ?? null;
-    $userPermissions = $userPermissions ?? [];
-?>
+        <?php
+        // Default values for variables if not set
+        $selectedUserId = $selectedUserId ?? null;
+        $userPermissions = $userPermissions ?? [];
+        ?>
 
+        <!-- Form untuk Assign Permission -->
         <form action="<?= base_url('permissions/assign-user') ?>" method="post">
             <?= csrf_field() ?>
 
@@ -38,9 +40,8 @@
                     <option value="">-- Pilih User --</option>
                     <?php foreach ($users as $user): ?>
                         <option value="<?= $user['id'] ?>" <?= ($selectedUserId == $user['id']) ? 'selected' : '' ?>>
-    <?= esc($user['name']) ?> (<?= esc($user['email']) ?>)
-</option>
-
+                            <?= esc($user['name']) ?> (<?= esc($user['email']) ?>)
+                        </option>
                     <?php endforeach ?>
                 </select>
             </div>
@@ -49,26 +50,28 @@
             <div id="permissionsBox" class="mb-3" style="display: <?= isset($selectedUserId) ? 'block' : 'none' ?>;">
                 <label class="form-label">Pilih Permissions</label>
                 <div class="row">
+                    <?php 
+                    // Ensure userPermissions is an array of integers
+                    $userPermissions = array_map('intval', $userPermissions ?? []); 
+                    ?>
                     <?php foreach ($permissions as $perm): ?>
                         <?php
-    log_message('debug', '🔁 Cek permission ID: ' . $perm['id'] . ' -> ' . (in_array((int)$perm['id'], $userPermissions ?? []) ? '✅ Checked' : '❌ Not Checked'));
-?>
-
+                        // Debug log for permission checks
+                        log_message('debug', '🔁 Cek permission ID: ' . $perm['id'] . ' -> ' . (in_array((int)$perm['id'], $userPermissions) ? '✅ Checked' : '❌ Not Checked'));
+                        ?>
                         <div class="col-md-4 mb-2">
-                        <div class="form-check form-switch">
-    <input class="form-check-input permission-checkbox"
-           type="checkbox"
-           name="permissions[]"
-           value="<?= $perm['id'] ?>"
-           id="perm<?= $perm['id'] ?>"
-           <?= in_array((int)$perm['id'], $userPermissions ?? []) ? 'checked' : '' ?>>
-    <label class="form-check-label" for="perm<?= $perm['id'] ?>">
-        <?= esc($perm['alias']) ?>
-        <small class="text-muted">(<?= $perm['permission_name'] ?>)</small>
-    </label>
-</div>
-
-
+                            <div class="form-check form-switch">
+                                <input class="form-check-input permission-checkbox"
+                                       type="checkbox"
+                                       name="permissions[]"
+                                       value="<?= $perm['id'] ?>"
+                                       id="perm<?= $perm['id'] ?>"
+                                       <?= in_array((int)$perm['id'], $userPermissions) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="perm<?= $perm['id'] ?>">
+                                    <?= esc($perm['alias']) ?>
+                                    <small class="text-muted">(<?= $perm['permission_name'] ?>)</small>
+                                </label>
+                            </div>
                         </div>
                     <?php endforeach ?>
                 </div>
@@ -85,21 +88,32 @@
 
 <!-- 🧠 Scripts -->
 <script>
+    // DOM Elements
     const userSelect = document.getElementById('user_id');
     const box = document.getElementById('permissionsBox');
 
+    /**
+     * Fetch permissions for a specific user and update the UI.
+     * @param {number} userId - The ID of the selected user.
+     */
     function fetchPermissions(userId) {
         fetch(`/permissions/user-permissions/${userId}`)
             .then(res => res.json())
             .then(data => {
+                // Convert all permission IDs to integers
+                const intData = data.map(Number);
+
+                // Update checkboxes based on fetched permissions
                 document.querySelectorAll('.permission-checkbox').forEach(cb => {
-                    cb.checked = data.includes(parseInt(cb.value));
+                    cb.checked = intData.includes(parseInt(cb.value));
                 });
+
+                // Show the permissions box
                 box.style.display = 'block';
             });
     }
 
-    // Panggil saat user change
+    // Event listener for user selection change
     userSelect.addEventListener('change', function () {
         const userId = this.value;
         if (!userId) {
@@ -109,15 +123,15 @@
         fetchPermissions(userId);
     });
 
-    // Auto load if selectedUserId sudah ada (pas reload)
-window.addEventListener('DOMContentLoaded', () => {
-    const selected = "<?= $selectedUserId ?>";
-    if (selected) {
-        fetchPermissions(selected);
-    } else {
-        box.style.display = 'none';
-    }
-});
+    // Auto-load permissions if a user is already selected (e.g., on page reload)
+    window.addEventListener('DOMContentLoaded', () => {
+        const selected = <?= json_encode($selectedUserId) ?>;
+        if (selected) {
+            fetchPermissions(selected);
+        } else {
+            box.style.display = 'none';
+        }
+    });
 </script>
 
 <?= $this->endSection(); ?>

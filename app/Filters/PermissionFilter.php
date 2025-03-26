@@ -6,8 +6,18 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Filters\FilterInterface;
 
+/**
+ * Filter untuk memeriksa izin akses pengguna berdasarkan permission.
+ */
 class PermissionFilter implements FilterInterface
 {
+    /**
+     * Fungsi yang dijalankan sebelum request diproses.
+     *
+     * @param RequestInterface $request Objek request.
+     * @param array|null $arguments Argumen tambahan yang diberikan ke filter.
+     * @return mixed Redirect jika pengguna tidak memiliki izin, atau null jika diizinkan.
+     */
     public function before(RequestInterface $request, $arguments = null)
     {
         $session = session();
@@ -27,7 +37,7 @@ class PermissionFilter implements FilterInterface
         // ✅ Ambil permission yang dibutuhkan dari `$arguments`
         $requiredPermission = $arguments[0] ?? null;
 
-        // 🔥 Debugging: Cek permission yang dibutuhkan
+        // 🔥 Debugging: Log permission yang dibutuhkan dan permission pengguna
         log_message('info', '🔍 Checking permission: ' . $requiredPermission);
         log_message('info', '🔍 User permissions (Fixed Array): ' . json_encode($userPermissions));
 
@@ -37,6 +47,14 @@ class PermissionFilter implements FilterInterface
         }
     }
 
+    /**
+     * Fungsi yang dijalankan setelah request diproses.
+     *
+     * @param RequestInterface $request Objek request.
+     * @param ResponseInterface $response Objek response.
+     * @param array|null $arguments Argumen tambahan yang diberikan ke filter.
+     * @return void
+     */
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
         // Tidak ada yang perlu dilakukan setelah request
