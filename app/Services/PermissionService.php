@@ -56,4 +56,13 @@ class PermissionService
         return $this->rolePermissionModel->insertBatch($data);
     }
 
+    public function getPermissionsByUserId($userId): array
+{
+    return array_map('intval', array_column(
+        $this->permissionRepo->getUserPermissions($userId),
+        'permission_id'
+    ));
+}
+
+
 }

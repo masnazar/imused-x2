@@ -36,7 +36,7 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Total PO</div>
-                        <div class="fs-21 fw-semibold"><?= $totalPOs ?></div>
+                        <div class="fs-21 fw-semibold"><?= number_format($totalPOs) ?></div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-primary-transparent text-primary fs-10">
@@ -59,7 +59,7 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Pending PO</div>
-                        <div class="fs-21 fw-semibold"><?= $pendingPOs ?></div>
+                        <div class="fs-21 fw-semibold"><?= number_format($pendingPOs) ?></div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-warning-transparent text-warning fs-10">
@@ -82,7 +82,7 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Completed PO</div>
-                        <div class="fs-21 fw-semibold"><?= $completedPOs ?></div>
+                        <div class="fs-21 fw-semibold"><?= number_format($completedPOs) ?></div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-success-transparent text-success fs-10">
@@ -118,6 +118,9 @@
     </div>
 </div>
 <!-- End:: Statistik PO -->
+
+<!-- Bagian atas file -->
+<?= $date_filter ?>
 
 <!-- Tambah PO -->
 <div class="btn-list">
@@ -176,9 +179,18 @@ $(document).ready(function() {
         processing: true,
         serverSide: true,
         ajax: {
-            url: "<?= base_url('purchase-orders/getData') ?>",
-            type: "POST"
-        },
+    url: "<?= base_url('purchase-orders/getData') ?>",
+    type: "POST",
+    data: function(d) {
+        d.jenis_filter = $('#jenisFilter').val();
+        d.start_date = $('input[name="start_date"]').val();
+        d.end_date = $('input[name="end_date"]').val();
+        d.periode = $('select[name="periode"]').val();
+    },
+    error: function(xhr, error, code) {
+        console.error('Error loading data:', xhr.responseText);
+    }
+},
         columns: [
             { 
                 data: null,
@@ -201,31 +213,30 @@ $(document).ready(function() {
                 }
             },
             { 
-                data: 'products',
-                className: 'align-middle',
-                render: function(data) {
-                    if (!data) return '-';
-                    const products = data.split('||');
-                    return `
-                        <div class="product-list">
-                            ${products.slice(0, 2).map(p => {
-                                const parts = p.split('::');
-                                return `
-                                    <div class="d-flex align-items-center mb-2">
-                                        <div class="flex-grow-1">
-                                            <div class="fw-medium">${parts[1]}</div>
-                                            <small class="text-muted">${parts[2]} pcs × Rp ${parseInt(parts[3]).toLocaleString()}</small>
-                                        </div>
-                                        <span class="badge bg-light text-muted border ms-2">${parts[0]}</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                            ${products.length > 2 ? 
-                                `<div class="text-primary fs-12">+ ${products.length - 2} produk lainnya</div>` : ''}
-                        </div>
-                    `;
+    data: 'products',
+    className: 'align-middle',
+    render: function(data) {
+        try {
+            if (!data || data === "-") return '<div class="text-muted">-</div>';
+            
+            // Format angka dalam list produk
+            const formattedProducts = data.split('||').map(product => {
+                const parts = product.split('::');
+                if (parts.length >= 4) {
+                    // Format quantity dan harga
+                    parts[2] = parseInt(parts[2]).toLocaleString('id-ID') + ' pcs';
+                    parts[3] = 'Rp ' + parseInt(parts[3]).toLocaleString('id-ID');
                 }
-            },
+                return parts.join('::');
+            }).join('||');
+            
+            return `<div class="product-list">${formattedProducts}</div>`;
+        } catch (e) {
+            console.error('Error rendering products:', e);
+            return '<div class="text-danger">Error memuat data</div>';
+        }
+    }
+},
             { 
                 data: 'created_at',
                 className: 'align-middle',
@@ -355,6 +366,34 @@ $(document).ready(function() {
 .product-list {
     max-width: 300px;
 }
+.product-list small.text-muted {
+    font-size: 0.8em;
+}
+
+.product-list .badge {
+    font-family: monospace;
+    min-width: 70px;
+}
 </style>
+
+<script>
+function confirmDelete(event, form) {
+    event.preventDefault();
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: "Data PO ini akan dihapus secara permanen!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Ya, hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            form.submit();
+        }
+    });
+}
+</script>
 
 <?= $this->endSection() ?>

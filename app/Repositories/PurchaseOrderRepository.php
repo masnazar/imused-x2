@@ -19,6 +19,8 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Ambil semua Purchase Orders
+     *
+     * @return array Daftar semua Purchase Orders
      */
     public function getAllPurchaseOrders()
     {
@@ -27,6 +29,9 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Ambil kode brand berdasarkan produk yang dipilih
+     *
+     * @param int $productId ID produk
+     * @return string|null Kode brand
      */
     public function getBrandCodeByProduct($productId)
     {
@@ -40,6 +45,11 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Ambil nomor urutan terakhir dalam bulan berjalan
+     *
+     * @param int $year Tahun
+     * @param int $month Bulan
+     * @param string $brandCode Kode brand
+     * @return int Nomor urutan terakhir
      */
     public function getLastPoNumber($year, $month, $brandCode)
     {
@@ -56,6 +66,9 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Konversi angka bulan ke angka Romawi
+     *
+     * @param int $month Bulan dalam angka
+     * @return string|null Bulan dalam angka Romawi
      */
     public function convertToRoman($month)
     {
@@ -70,6 +83,9 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Simpan Purchase Order
+     *
+     * @param array $data Data Purchase Order
+     * @return int ID Purchase Order yang baru disimpan
      */
     public function create($data)
     {
@@ -79,6 +95,9 @@ class PurchaseOrderRepository
 
     /**
      * 📌 Simpan Detail Purchase Order
+     *
+     * @param array $data Data detail Purchase Order
+     * @return bool Status penyimpanan
      */
     public function createDetail($data)
     {
@@ -86,154 +105,369 @@ class PurchaseOrderRepository
     }
 
     /**
-     * 📌 Ambil ID PO terakhir yang disimpan
+     * 📌 Hapus Purchase Order (Soft Delete)
+     *
+     * @param int $id ID Purchase Order
+     * @return bool Status penghapusan
      */
-    public function getLastInsertId()
+    public function delete($id)
+{
+    return $this->model->delete($id); // ✅ Akan otomatis update deleted_at
+}
+
+    /**
+     * 📌 Ambil detail Purchase Order
+     *
+     * @param int $purchaseOrderId ID Purchase Order
+     * @return array Detail Purchase Order
+     */
+    public function getPurchaseOrderDetails($purchaseOrderId)
     {
-        return $this->model->getInsertID();
+        return $this->db->table('purchase_order_details')
+            ->select('purchase_order_details.*, products.nama_produk, products.sku')
+            ->join('products', 'products.id = purchase_order_details.product_id')
+            ->where('purchase_order_details.purchase_order_id', $purchaseOrderId)
+            ->get()
+            ->getResultArray();
     }
 
     /**
-     * 📌 Hapus Purchase Order (Soft Delete)
+     * 📌 Ambil data Purchase Order dengan pagination
+     *
+     * @param int $start Offset data
+     * @param int $length Jumlah data
+     * @param string|null $search Kata kunci pencarian
+     * @return array Data Purchase Order
      */
-    public function delete($id)
+    public function getPurchaseOrderData($start, $length, $search, $filters = [])
     {
-        return $this->model->update($id, ['deleted_at' => date('Y-m-d H:i:s')]);
-    }
+        $builder = $this->db->table('purchase_orders po')
+            ->select('po.*, s.supplier_name, 
+                JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        "product_id", pod.product_id,
+                        "nama_produk", p.nama_produk,
+                        "quantity", pod.quantity,
+                        "unit_price", pod.unit_price,
+                        "total_price", pod.total_price
+                    )
+                ) AS products')
+            ->join('suppliers s', 's.id = po.supplier_id', 'left')
+            ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
+            ->join('products p', 'p.id = pod.product_id', 'left')
+            ->groupBy('po.id');
 
-    public function getPurchaseOrderDetails($purchaseOrderId)
-{
-    $db = \Config\Database::connect();
-
-    return $db->table('purchase_order_details')
-        ->select('purchase_order_details.*, products.nama_produk, products.sku')
-        ->join('products', 'products.id = purchase_order_details.product_id')
-        ->where('purchase_order_details.purchase_order_id', $purchaseOrderId)
-        ->get()
-        ->getResultArray();
+            // 🔥 Tambahin ini!
+if (!empty($filters)) {
+    $builder = $this->applyDateFilter($builder, 'po.created_at', $filters);
 }
 
-public function getPurchaseOrderData($start, $length, $search)
-{
-    $builder = $this->db->table('purchase_orders po')
-        ->select('po.*, s.supplier_name, 
-            JSON_ARRAYAGG(
-                JSON_OBJECT(
-                    "product_id", pod.product_id,
-                    "nama_produk", p.nama_produk,
-                    "quantity", pod.quantity,
-                    "unit_price", pod.unit_price,
-                    "total_price", pod.total_price
-                )
-            ) AS products') // 🔥 Ubah ke JSON_ARRAYAGG
-        ->join('suppliers s', 's.id = po.supplier_id', 'left')
-        ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
-        ->join('products p', 'p.id = pod.product_id', 'left')
-        ->groupBy('po.id');
-
-    if ($search) {
-        $builder->groupStart()
+        if ($search) {
+            $builder->groupStart()
                 ->like('po.po_number', $search)
                 ->orLike('s.supplier_name', $search)
                 ->orLike('p.nama_produk', $search)
                 ->groupEnd();
+        }
+
+        return $builder->limit($length, $start)->get()->getResultArray();
     }
 
-    return $builder->limit($length, $start)->get()->getResultArray();
-}
-
-public function findById($id)
-{
-    return $this->db->table('purchase_orders po')
-        ->select('po.*, s.supplier_name, s.supplier_address') // Tambahkan supplier_address
-        ->join('suppliers s', 's.id = po.supplier_id', 'left')
-        ->where('po.id', $id)
-        ->get()
-        ->getRowArray();
-}
-
-
-public function updateReceivedQuantity($poId, $productId, $receivedQty)
-{
-    $this->db->table('purchase_order_details')
-        ->where('purchase_order_id', $poId)
-        ->where('product_id', $productId)
-        ->set('received_quantity', "received_quantity + $receivedQty", false)
-        ->set('remaining_quantity', "remaining_quantity - $receivedQty", false)
-        ->update();
-}
-
-public function logPoReceipt($poId, $productId, $warehouseId, $receivedQty)
-{
-    return $this->db->table('po_receipt_logs')->insert([
-        'purchase_order_id' => $poId,
-        'product_id' => $productId,
-        'warehouse_id' => $warehouseId,
-        'received_quantity' => $receivedQty,
-    ]);
-}
-
-
-public function getAllWarehouses()
-{
-    return $this->db->table('warehouses')
-        ->select('id, name')
-        ->where('deleted_at', null)
-        ->get()
-        ->getResultArray();
-}
-
-
-public function updatePoStatus($poId)
-{
-    // Ambil total PO dan total yang sudah diterima
-    $query = $this->db->table('purchase_order_details')
-        ->select('SUM(quantity) as total_ordered, SUM(received_quantity) as total_received')
-        ->where('purchase_order_id', $poId)
-        ->get()
-        ->getRowArray();
-
-    if (!$query) {
-        return false;
+    /**
+     * 📌 Cari Purchase Order berdasarkan ID
+     *
+     * @param int $id ID Purchase Order
+     * @return array|null Data Purchase Order
+     */
+    public function findById($id)
+    {
+        return $this->db->table('purchase_orders po')
+            ->select('po.*, s.supplier_name, s.supplier_address')
+            ->join('suppliers s', 's.id = po.supplier_id', 'left')
+            ->where('po.id', $id)
+            ->get()
+            ->getRowArray();
     }
 
-    // Tentukan status berdasarkan jumlah penerimaan
-    if ($query['total_received'] == 0) {
-        $status = 'Pending';
-    } elseif ($query['total_received'] < $query['total_ordered']) {
-        $status = 'Partial';
-    } else {
-        $status = 'Completed';
+    /**
+     * 📌 Perbarui jumlah barang yang diterima
+     *
+     * @param int $poId ID Purchase Order
+     * @param int $productId ID Produk
+     * @param int $receivedQty Jumlah barang diterima
+     * @return void
+     */
+    public function updateReceivedQuantity($poId, $productId, $receivedQty)
+    {
+        $this->db->table('purchase_order_details')
+            ->where('purchase_order_id', $poId)
+            ->where('product_id', $productId)
+            ->set('received_quantity', "received_quantity + $receivedQty", false)
+            ->set('remaining_quantity', "remaining_quantity - $receivedQty", false)
+            ->update();
     }
 
-    // Update status PO
-    return $this->db->table('purchase_orders')
-        ->where('id', $poId)
-        ->update(['status' => $status]);
-}
+    /**
+     * 📌 Ambil semua gudang
+     *
+     * @return array Daftar gudang
+     */
+    public function getAllWarehouses()
+    {
+        return $this->db->table('warehouses')
+            ->select('id, name')
+            ->where('deleted_at', null)
+            ->get()
+            ->getResultArray();
+    }
 
-public function countAll()
+    /**
+     * 📌 Catat log penerimaan barang
+     *
+     * @param int $poId ID Purchase Order
+     * @param int $productId ID Produk
+     * @param int $warehouseId ID Gudang
+     * @param int $receivedQty Jumlah barang diterima
+     * @param string $nomorSuratJalan Nomor surat jalan
+     * @return bool Status penyimpanan log
+     */
+    public function logPoReceipt($poId, $productId, $warehouseId, $receivedQty, $nomorSuratJalan)
+    {
+        return $this->db->table('po_receipt_logs')->insert([
+            'nomor_surat_jalan' => $nomorSuratJalan,
+            'purchase_order_id' => $poId,
+            'product_id' => $productId,
+            'warehouse_id' => $warehouseId,
+            'received_quantity' => $receivedQty,
+            'received_at' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    /**
+     * 📌 Ambil log penerimaan untuk Purchase Order tertentu
+     *
+     * @param int $purchaseOrderId ID Purchase Order
+     * @return array Log penerimaan
+     */
+    public function getReceiptLogs($purchaseOrderId)
+    {
+        return $this->db->table('po_receipt_logs log')
+            ->select('log.nomor_surat_jalan, log.*, w.name as warehouse_name, p.sku, p.nama_produk as product_name')
+            ->join('warehouses w', 'w.id = log.warehouse_id')
+            ->join('products p', 'p.id = log.product_id')
+            ->where('log.purchase_order_id', $purchaseOrderId)
+            ->orderBy('log.received_at', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * 📌 Hitung semua Purchase Orders
+     *
+     * @return int Jumlah Purchase Orders
+     */
+    public function countAllPurchaseOrders($builder = null)
 {
+    if ($builder) {
+        return $builder->countAllResults(false);
+    }
+
     return $this->db->table('purchase_orders')
         ->where('deleted_at', null)
         ->countAllResults();
 }
 
-public function countByStatus($status)
+
+    /**
+     * 📌 Hitung Purchase Orders berdasarkan status
+     *
+     * @param string $status Status Purchase Order
+     * @return int Jumlah Purchase Orders dengan status tertentu
+     */
+    public function countByStatus($status, $builder = null)
 {
+    if ($builder) {
+        $builder = clone $builder; // jaga-jaga
+        return $builder->where('po.status', $status)->countAllResults();
+    }
+
     return $this->db->table('purchase_orders')
         ->where('status', $status)
         ->where('deleted_at', null)
         ->countAllResults();
 }
 
-public function getTotalItems()
-{
-    $result = $this->db->table('purchase_order_details')
-        ->selectSum('quantity')
-        ->get()
-        ->getRowArray();
 
-    return $result['quantity'] ?? 0;
+
+    /**
+     * 📌 Hitung total item dalam semua Purchase Orders
+     *
+     * @return int Total item
+     */
+    public function getTotalItems($builder = null)
+{
+    if (is_null($builder)) {
+        $builder = $this->db->table('purchase_order_details pod')
+            ->select('SUM(pod.quantity) as total_quantity') // Hanya ambil SUM
+            ->join('purchase_orders po', 'po.id = pod.purchase_order_id')
+            ->where('po.deleted_at', null);
+    }
+
+    // Reset select untuk memastikan tidak ada kolom lain
+    $builder->select('SUM(pod.quantity) as total_quantity', false);
+    
+    $result = $builder->get()->getRowArray();
+
+    return (int) ($result['total_quantity'] ?? 0);
 }
+
+
+
+    /**
+     * 📌 Perbarui status Purchase Order
+     *
+     * @param int $poId ID Purchase Order
+     * @return bool Status pembaruan
+     */
+    public function updatePoStatus($poId)
+    {
+        $query = $this->db->table('purchase_order_details')
+            ->select('SUM(quantity) as total_ordered, SUM(received_quantity) as total_received')
+            ->where('purchase_order_id', $poId)
+            ->get()
+            ->getRowArray();
+
+        if (!$query || is_null($query['total_ordered'])) {
+            log_message('error', '❌ Gagal ambil total PO: ' . print_r($query, true));
+            return false;
+        }
+
+        $totalOrdered = (int)$query['total_ordered'];
+        $totalReceived = (int)$query['total_received'];
+
+        $status = 'Pending';
+        if ($totalReceived > 0) {
+            $status = ($totalReceived < $totalOrdered) ? 'Partial' : 'Completed';
+        }
+
+        log_message('info', "🔄 Update status PO #$poId: Status=$status");
+
+        return $this->db->table('purchase_orders')
+            ->where('id', $poId)
+            ->update(['status' => $status]);
+    }
+
+    /**
+     * 📌 Ambil brand berdasarkan supplier
+     *
+     * @param int $supplierId ID Supplier
+     * @return array Daftar brand
+     */
+    public function getBrandsBySupplier($supplierId)
+    {
+        return $this->db->table('brands')
+            ->select('id')
+            ->where('supplier_id', $supplierId)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+     * 📌 Ambil produk berdasarkan brand
+     *
+     * @param array $brandIds Daftar ID brand
+     * @return array Daftar produk
+     */
+    public function getProductsByBrands(array $brandIds)
+    {
+        if (empty($brandIds)) {
+            return [];
+        }
+
+        return $this->db->table('products')
+            ->select('id, nama_produk, sku')
+            ->whereIn('brand_id', $brandIds)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
+ * Ambil statistik PO berdasarkan filter (termasuk tanggal)
+ *
+ * @param array $filters
+ * @return array
+ */
+public function getStatisticsWithFilter(array $filters = []): array
+{
+    $baseBuilder = $this->db->table('purchase_orders po')
+        ->where('po.deleted_at', null);
+
+    if (!empty($filters)) {
+        $baseBuilder = $this->applyDateFilter($baseBuilder, 'po.created_at', $filters);
+    }
+
+    return [
+        'total'        => $this->countAllPurchaseOrders($baseBuilder),
+        'pending'      => $this->countByStatus('Pending', clone $baseBuilder),
+        'completed'    => $this->countByStatus('Completed', clone $baseBuilder),
+        'total_items'  => $this->getTotalItems(
+    $this->buildFilteredItemsQuery($filters)
+),
+    ];
+}
+
+public function buildFilteredItemsQuery(array $filters = [])
+{
+    $builder = $this->db->table('purchase_order_details pod')
+        ->join('purchase_orders po', 'po.id = pod.purchase_order_id')
+        ->where('po.deleted_at', null)
+        ->selectSum('pod.quantity', 'total_quantity'); // ✅ INI WAJIB, brokoli!
+
+    // ⏳ Apply filter tanggal
+    if (!empty($filters)) {
+        $builder = $this->applyDateFilter($builder, 'po.created_at', $filters);
+    }
+
+    return $builder;
+}
+
+
+
+
+
+/**
+ * Terapkan filter tanggal ke builder query
+ *
+ * @param object $builder
+ * @param string $column
+ * @param array $filters
+ * @return object
+ */
+public function applyDateFilter($builder, string $column, array $filters): object
+{
+    if (isset($filters['jenis_filter']) && $filters['jenis_filter'] === 'custom') {
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $start = $filters['start_date'] . ' 00:00:00';
+            $end   = $filters['end_date']   . ' 23:59:59';
+
+            $builder->where("$column >=", $start);
+            $builder->where("$column <=", $end);
+        }
+    } elseif (isset($filters['jenis_filter']) && $filters['jenis_filter'] === 'periode') {
+        if (!empty($filters['periode'])) {
+            list($month, $year) = explode('-', $filters['periode']);
+
+            // ⏪ Geser mundur 1 bulan karena labelnya dimajukan 1 bulan
+            $periodeDate = \DateTime::createFromFormat('Y-m-d', "$year-$month-01")->modify('-1 month');
+            $startDate = $periodeDate->format('Y-m-25');
+            $endDate = $periodeDate->modify('+1 month')->format('Y-m-24');
+
+            $builder->where("$column >=", $startDate);
+            $builder->where("$column <=", $endDate);
+        }
+    }
+
+    return $builder;
+}
+    
 }

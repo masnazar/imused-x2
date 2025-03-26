@@ -10,16 +10,65 @@ class Inventory extends Controller
 {
     protected $service;
 
+    /**
+     * Konstruktor untuk menginisialisasi service Inventory.
+     */
     public function __construct()
     {
         $this->service = new InventoryService(new InventoryRepository());
     }
 
+    /**
+     * Menampilkan halaman utama inventory.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function index()
     {
-        return view('inventory/index');
+        $warehouseRepo = new \App\Repositories\WarehouseRepository();
+        $warehouses = $warehouseRepo->getAllWarehouses();
+
+        $warehouseId = $this->request->getGet('warehouse_id');
+        $totalStock = $this->service->getTotalStock($warehouseId);
+
+        return view('inventory/index', [
+            'warehouses'   => $warehouses,
+            'warehouse_id' => $warehouseId,
+            'total_stock'  => $totalStock,
+        ]);
     }
 
+    /**
+     * Mengembalikan data inventory dalam format JSON untuk datatable.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
+    public function datatable()
+    {
+        $request = service('request');
+
+        $start = (int) $request->getGet('start');
+        $length = (int) $request->getGet('length');
+        $search = $request->getGet('search')['value'] ?? '';
+        $warehouseId = $request->getGet('warehouse_id') ?? null;
+
+        $data = $this->service->getInventoryDatatable($start, $length, $search, $warehouseId);
+        $recordsTotal = $this->service->countTotalInventory($warehouseId);
+        $recordsFiltered = $this->service->countFilteredInventory($search, $warehouseId);
+
+        return $this->response->setJSON([
+            'draw' => (int) $request->getGet('draw'),
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Memperbarui stok produk di gudang tertentu.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function updateStock()
     {
         $warehouseId = $this->request->getPost('warehouse_id');
@@ -27,9 +76,38 @@ class Inventory extends Controller
         $quantity    = $this->request->getPost('quantity');
 
         if ($this->service->updateStock($warehouseId, $productId, $quantity)) {
-            return redirect()->to('/inventory')->with('swal_success', 'Stok berhasil diperbarui.');
+            return redirect()->to('/inventory')->with('success', 'Stok berhasil diperbarui.');
         }
 
-        return redirect()->back()->with('swal_error', 'Gagal memperbarui stok.');
+        return redirect()->back()->with('error', 'Gagal memperbarui stok.');
     }
+
+    /**
+     * Menampilkan log perubahan stok untuk produk tertentu di gudang tertentu.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
+    public function logs()
+{
+    $productId = $this->request->getGet('product_id');
+    $warehouseId = $this->request->getGet('warehouse_id');
+
+    $products = model('App\Models\ProductModel')->findAll();
+    $warehouses = model('App\Models\WarehouseModel')->findAll();
+    $logs = [];
+
+    if ($productId && $warehouseId) {
+        $inventoryRepo = new \App\Repositories\InventoryRepository(); // 💥 Pakai repo!
+        $logs = $inventoryRepo->getInventoryLogs($productId, $warehouseId);
+    }
+
+    return view('inventory/logs', [
+        'products' => $products,
+        'warehouses' => $warehouses,
+        'logs' => $logs,
+        'product_id' => $productId,
+        'warehouse_id' => $warehouseId,
+    ]);
+}
+
 }

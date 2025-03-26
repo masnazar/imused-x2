@@ -5,21 +5,40 @@ namespace App\Controllers;
 use App\Services\UserService;
 use CodeIgniter\Controller;
 
+/**
+ * Controller untuk autentikasi pengguna.
+ */
 class Auth extends Controller
 {
+    /**
+     * @var UserService $userService Instance dari UserService.
+     */
     protected $userService;
 
+    /**
+     * Constructor untuk menginisialisasi UserService.
+     */
     public function __construct()
     {
         $this->userService = new UserService();
     }
 
+    /**
+     * Menampilkan halaman registrasi.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function register()
     {
         helper('form');
         return view('auth/register');
     }
 
+    /**
+     * Memproses data registrasi pengguna.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function processRegister()
     {
         log_message('info', '🟢 Request Method: ' . $this->request->getMethod());
@@ -29,7 +48,6 @@ class Auth extends Controller
             return redirect()->back()->with('error', 'Invalid Request');
         }
 
-        // ✅ Tambahkan validasi input
         $validation = \Config\Services::validation();
 
         $rules = [
@@ -70,6 +88,13 @@ class Auth extends Controller
         return redirect()->back()->with('error', 'Registrasi gagal, coba lagi.');
     }
 
+    /**
+     * Memproses aktivasi akun pengguna.
+     *
+     * @param string $email Email pengguna.
+     * @param string $code  Kode aktivasi.
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function activate($email, $code)
     {
         log_message('info', '🟢 Permintaan aktivasi dari: ' . $email);
@@ -86,12 +111,21 @@ class Auth extends Controller
         return redirect()->to('/login')->with('error', 'Kode aktivasi salah atau akun sudah aktif.');
     }
 
-
+    /**
+     * Menampilkan halaman login.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function login()
     {
         return view('auth/login');
     }
 
+    /**
+     * Memproses login pengguna.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function processLogin()
     {
         $email = $this->request->getPost('email');
@@ -112,11 +146,17 @@ class Auth extends Controller
             return redirect()->back()->with('error', 'Email atau password salah.');
         }
 
+        // ✅ Baru aman dipanggil di sini
+        $permissions = $this->userService->getPermissionsByUserId($login['id']);
+        session()->set('user_permissions', $permissions);
+
         return redirect()->to('/dashboard')->with('success', 'Login berhasil!');
     }
 
     /**
-     * Menampilkan halaman Forgot Password
+     * Menampilkan halaman lupa password.
+     *
+     * @return \CodeIgniter\HTTP\Response
      */
     public function forgotPassword()
     {
@@ -124,7 +164,9 @@ class Auth extends Controller
     }
 
     /**
-     * Memproses permintaan forgot password
+     * Memproses permintaan lupa password.
+     *
+     * @return \CodeIgniter\HTTP\Response
      */
     public function processForgotPassword()
     {
@@ -138,28 +180,20 @@ class Auth extends Controller
     }
 
     /**
-     * Menampilkan halaman Reset Password berdasarkan token
+     * Menampilkan halaman reset password berdasarkan token.
+     *
+     * @param string $token Token reset password.
+     * @return \CodeIgniter\HTTP\Response
      */
     public function resetPassword($token)
     {
         return view('auth/reset-password', ['token' => $token]);
     }
 
-    public function resetPasswordForm($token)
-{
-    log_message('info', '🟢 User mengakses halaman reset password dengan token: ' . $token);
-
-    // Pastikan token valid sebelum menampilkan form
-    $user = $this->userService->getUserByResetToken($token);
-    if (!$user) {
-        return redirect()->to('/forgot-password')->with('error', 'Token reset password tidak valid atau sudah kedaluwarsa.');
-    }
-
-    return view('auth/reset-password', ['token' => $token]);
-}
-
     /**
-     * Memproses perubahan password baru
+     * Memproses perubahan password baru.
+     *
+     * @return \CodeIgniter\HTTP\Response
      */
     public function processResetPassword()
     {
@@ -178,6 +212,11 @@ class Auth extends Controller
         return redirect()->to('/login')->with('success', 'Password berhasil direset. Silakan login.');
     }
 
+    /**
+     * Memproses logout pengguna.
+     *
+     * @return \CodeIgniter\HTTP\Response
+     */
     public function logout()
     {
         log_message('info', '🟢 User logout');

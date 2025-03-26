@@ -62,7 +62,7 @@ $userRoleId = session()->get('role_id') ?? 0; // Set default 0 jika tidak ada
         <i class="ri-arrow-down-s-line side-menu__angle"></i>
     </a>
     <ul class="slide-menu child1">
-        <li class="slide"><a href="<?php echo base_url('warehouse/data-stok'); ?>" class="side-menu__item">Data Stok</a></li>
+        <li class="slide"><a href="<?php echo base_url('inventory'); ?>" class="side-menu__item">Data Stok Gudang</a></li>
         <li class="slide"><a href="<?php echo base_url('warehouse'); ?>" class="side-menu__item">Daftar Gudang</a></li>
         <li class="slide"><a href="<?php echo base_url('warehouse/transaksi-stok'); ?>" class="side-menu__item">Transaksi Stok</a></li>
         <li class="slide"><a href="<?php echo base_url('warehouse/data-stok-gudang'); ?>" class="side-menu__item">Data Stok Gudang</a></li>

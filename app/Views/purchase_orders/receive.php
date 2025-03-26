@@ -1,13 +1,15 @@
 <?= $this->extend('layouts/main'); ?>
 
+<!-- Bagian untuk menambahkan CSS khusus -->
 <?= $this->section('styles'); ?>
 <!-- FlatPickr CSS -->
 <link rel="stylesheet" href="<?= base_url('assets/libs/flatpickr/flatpickr.min.css'); ?>">
 <?= $this->endSection('styles'); ?>
 
+<!-- Bagian konten utama -->
 <?= $this->section('content'); ?>
 
-<!-- Start::page-header -->
+<!-- Start::Header Halaman -->
 <div class="d-flex align-items-center justify-content-between page-header-breadcrumb flex-wrap gap-2">
     <div>
         <nav>
@@ -25,12 +27,12 @@
         </a>
     </div>
 </div>
-<!-- End::page-header -->
+<!-- End::Header Halaman -->
 
 <!-- Flash Messages -->
 <?= $this->include('layouts/components/flashMessage') ?>
 
-<!-- Start::row-1 -->
+<!-- Start::Form Penerimaan -->
 <div class="row">
     <div class="col-xl-12">
         <div class="card custom-card">
@@ -51,12 +53,24 @@
                 </div>
             </div>
             <div class="card-body">
+                <!-- Form untuk menyimpan penerimaan -->
                 <form action="<?= base_url('purchase-orders/store-receive') ?>" method="post">
                     <?= csrf_field() ?>
                     <input type="hidden" name="purchase_order_id" value="<?= $po['id'] ?>">
 
-                    <!-- Warehouse Selection -->
+                    <!-- Pilihan Gudang dan Nomor Surat Jalan -->
                     <div class="row gy-3 mb-4">
+                        <div class="col-xl-4">
+                            <label for="nomor_surat_jalan" class="form-label">Nomor Surat Jalan</label>
+                            <input type="text" 
+                                   class="form-control form-control-light" 
+                                   id="nomor_surat_jalan" 
+                                   name="nomor_surat_jalan" 
+                                   required
+                                   placeholder="Masukkan nomor surat jalan"
+                                   oninput="this.value = this.value.toUpperCase()"
+                                   style="text-transform: uppercase">
+                        </div>
                         <div class="col-xl-4">
                             <label for="warehouse_id" class="form-label">Pilih Gudang</label>
                             <select name="warehouse_id" id="warehouse_id" class="form-control form-control-light" required>
@@ -68,7 +82,7 @@
                         </div>
                     </div>
 
-                    <!-- Products Table -->
+                    <!-- Tabel Produk -->
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover text-nowrap border mt-3">
                             <thead class="table-light">
@@ -91,15 +105,30 @@
                                         <td class="text-end"><?= esc($product['remaining_quantity']) ?> pcs</td>
                                         <td class="text-end">
                                             <input type="hidden" name="products[<?= $index ?>][product_id]" value="<?= $product['product_id'] ?>">
-                                            <div class="input-group border rounded flex-nowrap">
-                                                <input type="number" 
-                                                       name="products[<?= $index ?>][received_quantity]" 
-                                                       class="form-control form-control-light text-end border-0"
-                                                       min="0" 
-                                                       max="<?= $product['remaining_quantity'] ?>" 
-                                                       placeholder="0" 
-                                                       required>
-                                            </div>
+                                            <input type="number" 
+       name="products[<?= $index ?>][received_quantity]" 
+       class="form-control form-control-light text-end border-0"
+       min="0" 
+       max="<?= $product['remaining_quantity'] ?>" 
+       placeholder="0" 
+       required
+       oninput="validateQuantity(this, <?= $product['remaining_quantity'] ?>)">
+
+<script>
+function validateQuantity(input, max) {
+    let value = parseInt(input.value) || 0;
+    
+    // Batasi nilai antara 0 dan max
+    if (value < 0) {
+        input.value = 0;
+    } else if (value > max) {
+        input.value = max;
+    }
+    
+    // Update warna input
+    input.classList.toggle('is-invalid', value < 0 || value > max);
+}
+</script>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -107,7 +136,7 @@
                         </table>
                     </div>
 
-                    <!-- Form Actions -->
+                    <!-- Tombol Aksi -->
                     <div class="d-flex justify-content-end gap-2 mt-4">
                         <button type="reset" class="btn btn-light">Reset</button>
                         <button type="submit" class="btn btn-primary">
@@ -119,15 +148,17 @@
         </div>
     </div>
 </div>
-<!-- End::row-1 -->
+<!-- End::Form Penerimaan -->
 
 <?= $this->endSection('content'); ?>
 
+<!-- Bagian untuk menambahkan JavaScript khusus -->
 <?= $this->section('scripts'); ?>
 <!-- Flatpickr JS -->
 <script src="<?= base_url('assets/libs/flatpickr/flatpickr.min.js'); ?>"></script>
 
 <script>
+    // Inisialisasi Flatpickr untuk input tanggal
     document.addEventListener('DOMContentLoaded', function() {
         flatpickr('#date_received', {
             dateFormat: 'Y-m-d',

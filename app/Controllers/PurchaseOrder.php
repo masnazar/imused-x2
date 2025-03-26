@@ -7,19 +7,26 @@ use App\Repositories\PurchaseOrderRepository;
 use CodeIgniter\Controller;
 use App\Models\SupplierModel;
 use App\Models\ProductModel;
+use App\Services\InventoryService;
+use App\Repositories\InventoryRepository;
+
 
 class PurchaseOrder extends Controller
 {
     protected $service;
     protected $supplierModel;
     protected $productModel;
+    protected $auditLogService;
+    protected $inventoryService;
 
     public function __construct()
-    {
-        $this->service = new PurchaseOrderService(new PurchaseOrderRepository());
-        $this->supplierModel = new SupplierModel();
-        $this->productModel = new ProductModel();
-    }
+{
+    $this->service = new PurchaseOrderService(new PurchaseOrderRepository());
+    $this->supplierModel = new SupplierModel();
+    $this->productModel = new ProductModel();
+    $this->auditLogService = new \App\Services\AuditLogService();
+    $this->inventoryService = new InventoryService(new InventoryRepository());
+}
 
     /**
      * 📌 Menampilkan daftar Purchase Orders
@@ -28,8 +35,10 @@ class PurchaseOrder extends Controller
 {
     log_message('info', '🟢 Memuat daftar Purchase Orders');
 
-    // Ambil data statistik
-    $stats = $this->service->getPOStatistics();
+    // Ambil data statistik DENGAN FILTER
+    $stats = $this->service->getPOStatistics(
+        $this->request->getGet() // Pass filter parameters
+    );
 
     // Hitung persentase pertumbuhan (contoh dummy)
     $growth = [
@@ -47,7 +56,8 @@ class PurchaseOrder extends Controller
         'growthTotal' => $growth['total'],
         'growthPending' => $growth['pending'],
         'growthCompleted' => $growth['completed'],
-        'growthItems' => $growth['items']
+        'growthItems' => $growth['items'],
+        'date_filter' => view('partials/date_filter')
     ]);
 }
 
@@ -69,9 +79,28 @@ class PurchaseOrder extends Controller
 
     /**
      * 📌 Simpan Purchase Order baru
+     * 
+     * Fungsi ini menyimpan data Purchase Order baru ke database.
+     * Menggunakan transaksi untuk memastikan konsistensi data.
+     * 
+     * @return \CodeIgniter\HTTP\RedirectResponse
      */
     public function store()
 {
+    $validation = \Config\Services::validation();
+
+    $validation->setRules([
+        'supplier_id' => 'required|integer',
+        'products'    => 'required',
+        'products.*.product_id' => 'required|integer',
+        'products.*.quantity'   => 'required|integer|greater_than[0]',
+        'products.*.unit_price' => 'required|numeric|greater_than[0]',
+    ]);
+
+    if (!$this->validate($validation->getRules())) {
+        return redirect()->back()->withInput()->with('error', $validation->getErrors());
+    }
+
     $db = \Config\Database::connect();
     $db->transStart();
 
@@ -79,15 +108,7 @@ class PurchaseOrder extends Controller
         $data = $this->request->getPost();
         log_message('info', '🟢 Menerima data Purchase Order: ' . json_encode($data));
 
-        if (empty($data['supplier_id'])) {
-            throw new \Exception('Supplier tidak boleh kosong.');
-        }
-
-        if (empty($data['products'])) {
-            throw new \Exception('Produk tidak boleh kosong.');
-        }
-
-        // **Gunakan produk pertama untuk mendapatkan kode brand**
+        // Gunakan produk pertama untuk mendapatkan kode brand
         $firstProduct = $data['products'][0]['product_id'];
         $poNumber = $this->service->generatePoNumber($firstProduct);
 
@@ -106,10 +127,6 @@ class PurchaseOrder extends Controller
 
         // Simpan Detail Purchase Order
         foreach ($data['products'] as $product) {
-            if (!isset($product['product_id'], $product['quantity'], $product['unit_price'])) {
-                throw new \Exception('Data produk tidak lengkap.');
-            }
-
             $productData = [
                 'purchase_order_id' => $purchaseOrderId,
                 'product_id'        => $product['product_id'],
@@ -129,6 +146,16 @@ class PurchaseOrder extends Controller
             throw new \Exception('Gagal menyimpan Purchase Order.');
         }
 
+        // Audit Log setelah transaksi sukses
+        $this->auditLogService->log(
+            user_id(), // Sesuaikan dengan auth system Anda
+            'PurchaseOrder',
+            $purchaseOrderId,
+            'create',
+            null,
+            $purchaseOrderData
+        );
+
         return redirect()->to('/purchase-orders')->with('success', '✅ Purchase Order berhasil dibuat.');
     } catch (\Exception $e) {
         $db->transRollback();
@@ -142,56 +169,77 @@ class PurchaseOrder extends Controller
      * 📌 Hapus Purchase Order (Soft Delete)
      */
     public function delete($id)
-    {
-        try {
-            if ($this->service->deletePurchaseOrder($id)) {
-                return redirect()->to('/purchase-orders')->with('success', 'Purchase Order berhasil dihapus.');
-            }
-
-            return redirect()->back()->with('error', 'Gagal menghapus Purchase Order.');
-        } catch (\Exception $e) {
-            log_message('error', '❌ Error saat menghapus Purchase Order: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Terjadi kesalahan sistem.');
+{
+    try {
+        // Ambil data sebelum dihapus
+        $poBeforeDelete = $this->service->getPurchaseOrderById($id);
+        
+        if (!$poBeforeDelete) {
+            return redirect()->back()->with('error', 'PO tidak ditemukan atau sudah dihapus');
         }
-    }
 
-    public function getData()
+        $result = $this->service->deletePurchaseOrder($id);
+        
+        if ($result) {
+            // Tidak perlu toArray() karena sudah dalam bentuk array
+            $this->auditLogService->log(
+                session()->get('user_id'),
+                'PurchaseOrder',
+                $id,
+                'delete',
+                $poBeforeDelete, // Langsung passing array
+                null
+            );
+            
+            return redirect()->to('/purchase-orders')->with('success', 'PO berhasil dihapus');
+        }
+        
+        return redirect()->back()->with('error', 'Gagal menghapus PO');
+    } catch (\Exception $e) {
+        log_message('error', '❌ Error hapus PO: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Gagal menghapus: ' . $e->getMessage());
+    }
+}
+
+public function getData()
 {
     try {
         $request = \Config\Services::request();
         $poModel = new \App\Models\PurchaseOrderModel();
 
-        // Ambil parameter DataTables
+        $filters = [
+            'jenis_filter' => $request->getPost('jenis_filter'),
+            'start_date'   => $request->getPost('start_date'),
+            'end_date'     => $request->getPost('end_date'),
+            'periode'      => $request->getPost('periode'),
+        ];
+
         $draw = $request->getPost('draw');
         $start = $request->getPost('start');
         $length = $request->getPost('length');
         $searchValue = $request->getPost('search')['value'] ?? '';
 
-        // Ambil data dari Model
-        $data = $poModel->getPurchaseOrderData($start, $length, $searchValue);
-        $totalRecords = $poModel->countAllPurchaseOrders();
-        $filteredRecords = $poModel->countFilteredPurchaseOrders($searchValue);
+        $data = $poModel->getPurchaseOrderData($start, $length, $searchValue, $filters);
+        $totalRecords = $poModel->countPurchaseOrders(null, $filters);
+        $filteredRecords = $poModel->countPurchaseOrders($searchValue, $filters);
 
-        // Format data untuk DataTables
-        $formattedData = [];
-        foreach ($data as $row) {
-            $formattedData[] = [
-                'id' => $row['id'],
-                'po_number' => $row['po_number'],
+        $formattedData = array_map(function ($row) {
+            return [
+                'id'            => $row['id'],
+                'po_number'     => $row['po_number'],
                 'supplier_name' => $row['supplier_name'] ?? 'N/A',
-                'status' => $row['status'] ?? 'Pending', // Default status jika null
-                'products' => $row['products'] ?? '',
-                'created_at' => $row['created_at']
+                'status'        => $row['status'] ?? 'Pending',
+                'products'      => $this->formatProducts($row['products'] ?? ''),
+                'created_at'    => $row['created_at']
             ];
-        }
+        }, $data ?? []);
 
         return $this->response->setJSON([
-            'draw' => intval($draw),
-            'recordsTotal' => $totalRecords,
+            'draw'            => intval($draw),
+            'recordsTotal'    => $totalRecords,
             'recordsFiltered' => $filteredRecords,
-            'data' => $formattedData
+            'data'            => $formattedData
         ]);
-
     } catch (\Exception $e) {
         log_message('error', '❌ Error di getData: ' . $e->getMessage());
         return $this->response->setJSON([
@@ -200,35 +248,46 @@ class PurchaseOrder extends Controller
     }
 }
 
+
 private function formatProducts($products)
 {
-    if (empty($products)) return "";
+    if (empty($products)) return "-";
 
-    $productDetails = [];
     $productsArray = explode('||', $products);
+    $productDetails = [];
 
     foreach ($productsArray as $productString) {
         $parts = explode('::', $productString);
-        if (count($parts) === 5) {
-            $productDetails[] = "<b>{$parts[1]}</b> - {$parts[2]} pcs @ Rp " . number_format($parts[3], 0, ',', '.');
+        if (count($parts) >= 4) {
+            // Format angka
+            $quantity = number_format($parts[2], 0, ',', '.') . ' pcs';
+            $price = 'Rp ' . number_format($parts[3], 0, ',', '.');
+            
+            $productDetails[] = "<div class='d-flex align-items-center mb-2'>
+                <div class='flex-grow-1'>
+                    <div class='fw-medium'>{$parts[1]}</div>
+                    <small class='text-muted'>{$quantity} × {$price}</small>
+                </div>
+                <span class='badge bg-light text-muted border ms-2'>{$parts[0]}</span>
+            </div>";
         }
     }
 
-    return implode("<br>", $productDetails);
+    return !empty($productDetails) 
+        ? implode('', $productDetails) 
+        : "-";
 }
 
+// Di method view()
 public function view($id)
 {
     try {
         $po = $this->service->getPurchaseOrderById($id);
+        $receiptLogs = $this->service->getReceiptLogs($id);
+        $auditLogs = $this->auditLogService->getLogsForModel('PurchaseOrder', $id);
 
-        if (!$po) {
-            throw new \Exception("Purchase Order tidak ditemukan.");
-        }
-
-        log_message('info', '🔍 Data PO di view(): ' . json_encode($po));
-
-        return view('purchase_orders/view', compact('po'));
+        return view('purchase_orders/view', compact('po', 'receiptLogs', 'auditLogs'));
+        
     } catch (\Exception $e) {
         log_message('error', '❌ Error di view(): ' . $e->getMessage());
         return redirect()->to('/purchase-orders')->with('error', 'Terjadi kesalahan.');
@@ -256,19 +315,90 @@ public function receive($id)
 }
 
 
-
+// Di PurchaseOrderController.php - method storeReceive
 public function storeReceive()
 {
     try {
         $data = $this->request->getPost();
+        
+        // Konversi ke uppercase dan trim
+        $data['nomor_surat_jalan'] = strtoupper(trim($data['nomor_surat_jalan']));
+        
+        // Validasi surat jalan
+        if (empty($data['nomor_surat_jalan'])) {
+            throw new \Exception("Nomor surat jalan wajib diisi!");
+        }
+
+        // Ambil data sebelum update
+        $poBefore = $this->service->getPurchaseOrderById($data['purchase_order_id']);
+
         $this->service->processReceivePo($data);
 
+        // Ambil data setelah update
+        $poAfter = $this->service->getPurchaseOrderById($data['purchase_order_id']);
+
+        // Audit Log
+        $this->auditLogService->log(
+            user_id(),
+            'PurchaseOrder',
+            $data['purchase_order_id'],
+            'receive',
+            $poBefore,
+            $poAfter
+        );
+
         return redirect()->to('/purchase-orders/view/' . $data['purchase_order_id'])
-                         ->with('success', 'Penerimaan PO berhasil disimpan.');
+                         ->with('success', '✅ Penerimaan PO berhasil dicatat!');
+        
     } catch (\Exception $e) {
-        log_message('error', '❌ Error di storeReceive(): ' . $e->getMessage());
-        return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan.');
+        $errorMessage = str_replace(["\n", "\r"], ' ', $e->getMessage());
+        log_message('error', '❌ Error di storeReceive(): ' . $errorMessage);
+        return redirect()->back()->withInput()->with('error', $errorMessage);
     }
 }
 
+public function get_products_by_supplier($supplier_id)
+{
+    try {
+        $products = $this->service->getProductsBySupplier($supplier_id);
+        
+        return $this->response->setJSON([
+            'status' => 'success',
+            'products' => $products
+        ]);
+        
+    } catch (\Exception $e) {
+        log_message('error', '❌ Error get_products_by_supplier: ' . $e->getMessage());
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ]);
+    }
 }
+
+// Tambahkan endpoint baru di Controller
+public function get_product_sku($product_id)
+{
+    try {
+        $product = $this->productModel->select('sku')->find($product_id);
+        
+        if (!$product) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Produk tidak ditemukan'
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'sku' => $product['sku']
+        ]);
+
+    } catch (\Exception $e) {
+        log_message('error', '❌ Error get_product_sku: ' . $e->getMessage());
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ]);
+    }
+}}

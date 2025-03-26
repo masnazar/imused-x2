@@ -46,6 +46,7 @@ class Autoload extends AutoloadConfig
         'App\Models'  => APPPATH . 'Models',
         'App\Services' => APPPATH . 'Services', // Pastikan ada!
         'App\Repositories' => APPPATH . 'Repositories', // Pastikan ada!
+        'Tatter\Relations' => APPPATH . 'ThirdParty/relations/src',
     ];
 
     /**
@@ -95,5 +96,11 @@ class Autoload extends AutoloadConfig
      *
      * @var list<string>
      */
-    public $helpers = [];
+    public $helpers = [
+        'auth', // Tambahkan ini
+    'form',
+    'url',
+    'period',
+    'date'
+    ];
 }
