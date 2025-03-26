@@ -181,4 +181,10 @@ $routes->group('purchase-orders', ['filter' => 'auth'], function ($routes) {
     $routes->post('update/(:num)', 'PurchaseOrder::update/$1');
     $routes->post('receive/(:num)', 'PurchaseOrder::processReceive/$1');
     $routes->get('delete/(:num)', 'PurchaseOrder::delete/$1');
+    $routes->post('getData', 'PurchaseOrder::getData'); // 📌 Fetch data buat DataTables
+    $routes->get('view/(:num)', 'PurchaseOrder::view/$1');
+    $routes->get('receive/(:num)', 'PurchaseOrder::receive/$1');
+    $routes->post('store-receive', 'PurchaseOrder::storeReceive');
+
+
 });

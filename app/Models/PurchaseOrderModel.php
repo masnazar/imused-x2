@@ -8,49 +8,65 @@ class PurchaseOrderModel extends Model
 {
     protected $table            = 'purchase_orders';
     protected $primaryKey       = 'id';
-    protected $allowedFields    = [
-        'po_number',
-        'supplier_id',
-        'status',
-    ];
+    protected $allowedFields    = ['po_number', 'supplier_id', 'status'];
     protected $useTimestamps    = true;
     protected $useSoftDeletes   = true;
 
-    /**
-     * 📌 Ambil Purchase Order beserta detail suppliernya
-     */
     public function getPurchaseOrders()
     {
         return $this->select('purchase_orders.*, suppliers.supplier_name')
-                    ->join('suppliers', 'suppliers.id = purchase_orders.supplier_id')
-                    ->findAll();
+            ->join('suppliers', 'suppliers.id = purchase_orders.supplier_id')
+            ->findAll();
     }
 
-    /**
-     * 📌 Update status PO setelah barang diterima
-     */
     public function updateStatus($purchaseOrderId)
     {
-        $db = \Config\Database::connect();
-        $details = $db->table('purchase_order_details')
-                      ->where('purchase_order_id', $purchaseOrderId)
-                      ->get()
-                      ->getResultArray();
+        // ... (kode sebelumnya)
+    }
 
-        $allComplete = true;
-        $anyPartial = false;
+    public function getPurchaseOrderData($start, $length, $search)
+{
+    $builder = $this->db->table('purchase_orders po')
+        ->select('po.*, s.supplier_name, 
+            GROUP_CONCAT(CONCAT_WS("::", p.sku, p.nama_produk, pod.quantity, pod.unit_price) SEPARATOR "||") AS products')
+        ->join('suppliers s', 's.id = po.supplier_id', 'left')
+        ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
+        ->join('products p', 'p.id = pod.product_id', 'left')
+        ->groupBy('po.id')
+        ->where('po.deleted_at', null);  // Tambahkan filter deleted_at
 
-        foreach ($details as $detail) {
-            if ($detail['received_quantity'] < $detail['quantity']) {
-                $allComplete = false;
-            }
-            if ($detail['received_quantity'] > 0 && $detail['received_quantity'] < $detail['quantity']) {
-                $anyPartial = true;
-            }
+    if ($search) {
+        $builder->groupStart()
+                ->like('po.po_number', $search)
+                ->orLike('s.supplier_name', $search)
+                ->orLike('p.nama_produk', $search)
+                ->groupEnd();
+    }
+
+    return $builder->limit($length, $start)->get()->getResultArray();
+}
+    
+
+    public function countAllPurchaseOrders()
+    {
+        return $this->countAll();
+    }
+
+    public function countFilteredPurchaseOrders($search)
+    {
+        $builder = $this->db->table('purchase_orders po')
+            ->join('suppliers s', 's.id = po.supplier_id', 'left')
+            ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
+            ->join('products p', 'p.id = pod.product_id', 'left');
+
+        if ($search) {
+            $builder->groupStart()
+                ->like('po.po_number', $search)
+                ->orLike('s.supplier_name', $search)
+                ->orLike('p.nama_produk', $search)
+                ->groupEnd();
         }
 
-        $status = $allComplete ? 'Complete' : ($anyPartial ? 'Partial' : 'Pending');
-
-        return $this->update($purchaseOrderId, ['status' => $status]);
+        return $builder->countAllResults();
     }
 }

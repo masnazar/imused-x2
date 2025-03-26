@@ -70,7 +70,7 @@ Tambah Purchase Order
                             </td>
                             <td><input type="text" class="form-control sku-input" name="products[0][sku]" readonly></td>
                             <td><input type="number" class="form-control" name="products[0][quantity]" required min="1"></td>
-                            <td><input type="number" class="form-control" name="products[0][unit_price]" required min="0"></td>
+                            <td><input type="number" class="form-control" name="products[0][unit_price]" required min="1"></td>
                             <td><button type="button" class="btn btn-danger remove-product">Hapus</button></td>
                         </tr>
                     </tbody>
