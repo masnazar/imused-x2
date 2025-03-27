@@ -28,4 +28,14 @@ class Services extends BaseService
 
             return new SettingService();
         }
+
+        public static function MarketplaceTransactionService($getShared = true)
+{
+    if ($getShared) {
+        return static::getSharedInstance('MarketplaceTransactionService');
+    }
+
+    return new \App\Services\MarketplaceTransactionService();
+}
+
 }

@@ -6,7 +6,7 @@ use CodeIgniter\Database\BaseBuilder;
 use Config\Database;
 
 /**
- * Repository untuk data transaksi marketplace dari DB
+ * Repository untuk query kompleks marketplace_transactions
  */
 class MarketplaceTransactionRepository
 {
@@ -17,44 +17,71 @@ class MarketplaceTransactionRepository
         $this->db = Database::connect();
     }
 
-    public function getTransactions(array $filters): array
+    /**
+     * Query builder untuk DataTables server-side
+     */
+    public function getTransactionQuery(array $filters, string $platform): BaseBuilder
     {
         $builder = $this->db->table('marketplace_transactions mt')
-            ->select('
-                mt.id, mt.date, mt.order_number, mt.store_name, mt.platform, mt.status,
-                mt.selling_price, mt.hpp, mt.discount, mt.admin_fee,
-                (mt.selling_price - (mt.hpp + mt.discount + mt.admin_fee)) AS gross_profit,
-                c.courier_name
-            ')
-            ->join('couriers c', 'c.id = mt.courier_id', 'left');
+            ->select("
+                mt.id, mt.date, mt.order_number, mt.tracking_number, mt.store_name, mt.status,
+                mt.selling_price, mt.discount, mt.admin_fee, mt.hpp,
+                (mt.selling_price - (mt.discount + mt.admin_fee + mt.hpp)) as gross_profit,
+                b.brand_name, b.primary_color,
+                GROUP_CONCAT(DISTINCT p.nama_produk SEPARATOR ', ') as products,
+                SUM(d.quantity) as total_qty
+            ")
+            ->join('marketplace_detail_transactions d', 'd.transaction_id = mt.id', 'left')
+            ->join('products p', 'p.id = d.product_id', 'left')
+            ->join('brands b', 'b.id = mt.brand_id', 'left')
+            ->where('mt.platform', $platform)
+            ->groupBy('mt.id');
 
-        // Filter tanggal
-        if ($filters['filter_type'] === 'period' && $filters['month'] && $filters['year']) {
-            $month = (int)$filters['month'];
-            $year = (int)$filters['year'];
-            $start = $month === 1 ? date("Y-m-d", strtotime(($year - 1) . "-12-25")) : date("Y-m-d", strtotime("$year-" . ($month - 1) . "-25"));
-            $end = date("Y-m-d", strtotime("$year-$month-24"));
-            $builder->where('mt.date >=', $start)->where('mt.date <=', $end);
-        } elseif ($filters['filter_type'] === 'custom' && $filters['start_date'] && $filters['end_date']) {
-            $builder->where('mt.date >=', $filters['start_date'])->where('mt.date <=', $filters['end_date']);
+        if (!empty($filters['brand_id'])) {
+            $builder->where('mt.brand_id', $filters['brand_id']);
         }
 
-        // Filter pencarian
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $builder->where("DATE(mt.date) >=", $filters['start_date']);
+            $builder->where("DATE(mt.date) <=", $filters['end_date']);
+        }
+
         if (!empty($filters['search'])) {
             $builder->groupStart()
                 ->like('mt.order_number', $filters['search'])
+                ->orLike('mt.tracking_number', $filters['search'])
                 ->orLike('mt.store_name', $filters['search'])
-                ->orLike('mt.platform', $filters['search'])
+                ->orLike('p.nama_produk', $filters['search'])
+                ->orLike('b.brand_name', $filters['search'])
                 ->groupEnd();
         }
 
-        $data = $builder->get()->getResultArray();
+        return $builder;
+    }
 
-        return [
-            'draw' => intval($_POST['draw']),
-            'recordsTotal' => count($data),
-            'recordsFiltered' => count($data),
-            'data' => $data
-        ];
+    /**
+     * Hitung total statistik berdasarkan filter
+     */
+    public function getSummaryStats(array $filters, string $platform): array
+    {
+        $builder = $this->db->table('marketplace_transactions')
+            ->select("
+                COUNT(id) as total_sales,
+                SUM(selling_price) as total_omzet,
+                SUM(hpp + discount + admin_fee) as total_expenses,
+                SUM(selling_price - (hpp + discount + admin_fee)) as gross_profit
+            ")
+            ->where('platform', $platform);
+
+        if (!empty($filters['brand_id'])) {
+            $builder->where('brand_id', $filters['brand_id']);
+        }
+
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $builder->where('DATE(date) >=', $filters['start_date']);
+            $builder->where('DATE(date) <=', $filters['end_date']);
+        }
+
+        return $builder->get()->getRowArray();
     }
 }

@@ -5,42 +5,71 @@ namespace App\Controllers;
 use App\Services\MarketplaceTransactionService;
 use CodeIgniter\HTTP\ResponseInterface;
 
-/**
- * Controller untuk menampilkan dan mengelola transaksi marketplace
- */
 class MarketplaceTransaction extends BaseController
 {
-    protected $service;
+    protected MarketplaceTransactionService $service;
 
-    public function __construct(MarketplaceTransactionService $service)
+    public function __construct()
     {
-        $this->service = $service;
+        $this->service = service('MarketplaceTransactionService');
     }
 
     /**
-     * Menampilkan halaman utama Marketplace Transaction
+     * Menampilkan halaman utama transaksi berdasarkan platform
      */
-    public function index()
+    public function index(string $platform)
     {
-        return view('marketplace_transaction/index');
+        $brandId = $this->request->getGet('brand');
+        return view('marketplace_transaction/index', compact('platform', 'brandId'));
     }
 
     /**
-     * Endpoint untuk DataTable Server-Side
+     * Ambil data transaksi untuk DataTables
      */
-    public function getTransactions()
+    public function getTransactions(string $platform)
     {
-        $request = service('request');
-        $filters = [
-            'filter_type' => $request->getVar('filter_type'),
-            'month' => $request->getVar('month'),
-            'year' => $request->getVar('year'),
-            'start_date' => $request->getVar('start_date'),
-            'end_date' => $request->getVar('end_date'),
-            'search' => $request->getVar('search')['value'] ?? null
-        ];
+        return $this->response->setJSON(
+            $this->service->getDataTable($this->request, $platform)
+        );
+    }
 
-        $result = $this->service->getPaginatedData($filters);
-        return $this->response->setJSON($result);
+    /**
+     * Statistik dashboard
+     */
+    public function getStatistics(string $platform)
+    {
+        return $this->response->setJSON(
+            $this->service->getStatistics($this->request, $platform)
+        );
+    }
+
+    public function create(string $platform)
+    {
+        // Akan diisi kemudian
+    }
+
+    public function store(string $platform)
+    {
+        // Akan diisi kemudian
+    }
+
+    public function edit(string $platform, int $id)
+    {
+        // Akan diisi kemudian
+    }
+
+    public function update(string $platform, int $id)
+    {
+        // Akan diisi kemudian
+    }
+
+    public function delete(string $platform, int $id)
+    {
+        // Akan diisi kemudian
+    }
+
+    public function detail(string $platform, int $id)
+    {
+        // Akan diisi kemudian
     }
 }
