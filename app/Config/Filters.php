@@ -75,7 +75,9 @@ class Filters extends BaseFilters
     public array $globals = [
         'before' => [
         'csrf' => ['except' => [
-            'purchase-orders/getData', // Tambahkan ini jika csrf aktif
+            'purchase-orders/getData',
+            'stock-transactions/get-stock-transactions',
+            'stock-transactions/statistics',
         ]],
     ],
         'after' => [

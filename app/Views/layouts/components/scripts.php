@@ -12,6 +12,12 @@
             console.log('🟢 jQuery Loaded:', typeof jQuery);
          </script>
 
+         <!-- ApexChart CDN -->
+         <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+
 
         <!-- Include SweetAlert -->
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -61,3 +67,4 @@
         <!-- Custom JS -->
         <script src="<?php echo base_url('assets/js/custom.js'); ?>"></script>
      
+        <?= $this->renderSection('script') ?>

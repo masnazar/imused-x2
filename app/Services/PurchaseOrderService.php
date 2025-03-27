@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Repositories\PurchaseOrderRepository;
 use Exception;
+use App\Models\StockTransactionModel;
 
 /**
  * Service untuk mengelola Purchase Order
@@ -241,6 +242,14 @@ class PurchaseOrderService
                     'Penerimaan PO #' . $data['purchase_order_id'] . ' (Surat Jalan: ' . $data['nomor_surat_jalan'] . ')',
                     'in'
                 );
+
+                // 4️⃣ Catat Transaksi Stok (StockTransaction)
+                $this->createStockTransaction(
+                    $data['warehouse_id'],
+                    $product['product_id'],
+                    $receivedQty,
+                    'Purchase Order' // transaction_source
+                );
             }
 
             $this->repo->updatePoStatus($data['purchase_order_id']);
@@ -269,4 +278,19 @@ class PurchaseOrderService
     {
         return $this->repo->findByIdWithDetails($id);
     }
+
+    protected function createStockTransaction($warehouseId, $productId, $qty, $source = 'Purchase Order')
+{
+    $stockTxModel = new StockTransactionModel();
+
+    $stockTxModel->insert([
+        'warehouse_id'          => $warehouseId,
+        'product_id'            => $productId,
+        'quantity'              => $qty,
+        'transaction_type'      => 'Inbound',
+        'status'                => 'Received',
+        'transaction_source'    => $source,
+        'related_warehouse_id'  => $warehouseId, // 🔥 ini dia logikanya
+    ]);
+}
 }

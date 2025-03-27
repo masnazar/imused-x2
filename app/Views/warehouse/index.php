@@ -16,7 +16,7 @@ Daftar Warehouse
                 <li class="breadcrumb-item active" aria-current="page">Daftar Warehouse</li>
             </ol>
         </nav>
-        <h1 class="page-title fw-medium fs-18 mb-0">Daftar Warehouse</h1>
+        <h1 class="page-title fw-medium fs-18 mb-0"><i class="ri-building-4-line"></i> Daftar Warehouse</h1>
     </div>
     <div class="btn-list">
         <a href="<?= base_url('warehouse/create') ?>" class="btn btn-primary btn-wave">

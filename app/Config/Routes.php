@@ -415,3 +415,60 @@ $routes->group('permissions', ['filter' => 'admin'], function ($routes) {
     $routes->post('assign-user', 'UserPermission::assign');
     $routes->get('user-permissions/(:num)', 'UserPermission::getUserPermissions/$1');
 });
+
+
+/**
+ * 📦 Route: Stock Transactions (Dengan Permission)
+ */
+$routes->group('stock-transactions', ['filter' => 'permission:view_inventory'], static function ($routes) {
+    /**
+     * @route GET /stock-transactions
+     * @desc Halaman utama stock transactions
+     */
+    $routes->get('/', 'StockTransaction::index');
+
+    /**
+     * @route POST /stock-transactions/get-data
+     * @desc Ambil data transaksi stok untuk DataTables
+     */
+    $routes->post('get-stock-transactions', 'StockTransaction::getStockTransactions');
+    $routes->post('statistics', 'StockTransaction::getStatistik');
+
+});
+
+/**
+ * 📦 Marketplace Transaction Routes
+ */
+$routes->group('marketplace-transactions', ['filter' => 'auth'], function ($routes) {
+    /**
+     * @route Menampilkan halaman berdasarkan platform
+     */
+    $routes->get('(:segment)', 'MarketplaceTransaction::index/$1');
+
+    /**
+     * @route API untuk DataTables + Statistik
+     */
+    $routes->post('get-data/(:segment)', 'MarketplaceTransaction::getTransactions/$1');
+    $routes->post('get-statistics/(:segment)', 'MarketplaceTransaction::getStatistics/$1');
+
+    /**
+     * @route Tambah / Simpan Transaksi
+     */
+    $routes->get('create/(:segment)', 'MarketplaceTransaction::create/$1');
+    $routes->post('store/(:segment)', 'MarketplaceTransaction::store/$1');
+
+    /**
+     * @route Edit & Update
+     */
+    $routes->get('edit/(:segment)/(:num)', 'MarketplaceTransaction::edit/$1/$2');
+    $routes->post('update/(:segment)/(:num)', 'MarketplaceTransaction::update/$1/$2');
+
+    /**
+     * @route Detail & Hapus
+     */
+    $routes->get('detail/(:segment)/(:num)', 'MarketplaceTransaction::detail/$1/$2');
+    $routes->post('delete/(:segment)/(:num)', 'MarketplaceTransaction::delete/$1/$2');
+});
+
+
+
