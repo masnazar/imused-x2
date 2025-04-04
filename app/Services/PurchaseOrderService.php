@@ -28,7 +28,7 @@ class PurchaseOrderService
     }
 
     /**
-     * Ambil semua Purchase Orders
+     * Ambil semua Purchase Orders 
      *
      * @return array
      */
@@ -44,13 +44,59 @@ class PurchaseOrderService
      * @return array
      */
     public function getPOStatistics(array $filters = []): array
-    {
-        if (empty($filters)) {
-            $filters = service('request')->getGet();
-        }
+{
+    $currentStats = $this->repo->getStatisticsWithFilter($filters);
 
-        return $this->repo->getStatisticsWithFilter($filters);
+    // ⏮️ Buat filter periode sebelumnya
+    $previousFilters = $this->buildPreviousFilters($filters);
+    $previousStats = $this->repo->getStatisticsWithFilter($previousFilters);
+
+    return [
+        'total'        => $currentStats['total'],
+        'pending'      => $currentStats['pending'],
+        'completed'    => $currentStats['completed'],
+        'total_items'  => $currentStats['total_items'],
+        'growth_total'     => $this->calculateGrowth($previousStats['total'], $currentStats['total']),
+        'growth_pending'   => $this->calculateGrowth($previousStats['pending'], $currentStats['pending']),
+        'growth_completed' => $this->calculateGrowth($previousStats['completed'], $currentStats['completed']),
+        'growth_items'     => $this->calculateGrowth($previousStats['total_items'], $currentStats['total_items']),
+    ];
+}
+
+private function calculateGrowth($old, $current): float
+{
+    if ($old == 0) {
+        return $current > 0 ? 100.0 : 0.0;
     }
+
+    return round((($current - $old) / $old) * 100, 1);
+}
+
+private function buildPreviousFilters(array $filters): array
+{
+    $result = $filters;
+
+    if (($filters['jenis_filter'] ?? '') === 'periode' && !empty($filters['periode'])) {
+        [$month, $year] = explode('-', $filters['periode']);
+        $prev = (new \DateTime("$year-$month-01"))->modify('-1 month');
+        $result['periode'] = $prev->format('m-Y');
+    }
+
+    if (($filters['jenis_filter'] ?? '') === 'custom' && !empty($filters['start_date']) && !empty($filters['end_date'])) {
+        $start = new \DateTime($filters['start_date']);
+        $end   = new \DateTime($filters['end_date']);
+
+        $diff = $start->diff($end);
+        $newEnd = (clone $start)->modify('-1 day');
+        $newStart = (clone $newEnd)->sub($diff);
+
+        $result['start_date'] = $newStart->format('Y-m-d');
+        $result['end_date'] = $newEnd->format('Y-m-d');
+    }
+
+    return $result;
+}
+
 
     /**
      * Ambil Purchase Order berdasarkan ID
@@ -292,5 +338,94 @@ class PurchaseOrderService
         'transaction_source'    => $source,
         'related_warehouse_id'  => $warehouseId, // 🔥 ini dia logikanya
     ]);
+}
+
+/**
+ * Ambil data untuk DataTables (server-side processing)
+ *
+ * @param array $params
+ * @return array
+ */
+public function getDataTable(array $params): array
+{
+    $start = $params['start'] ?? 0;
+    $length = $params['length'] ?? 10;
+    $search = $params['search']['value'] ?? '';
+
+    $filters = [
+        'jenis_filter' => $params['jenis_filter'] ?? 'semua',
+        'start_date'   => $params['start_date'] ?? null,
+        'end_date'     => $params['end_date'] ?? null,
+        'periode'      => $params['periode'] ?? null,
+    ];
+
+    // Ambil data utama
+    $data = $this->repo->getPurchaseOrderData($start, $length, $search, $filters);
+
+    // Hitung total & filtered records
+    $totalRecords    = $this->repo->countAllPurchaseOrders();
+    $filteredRecords = $this->repo->countAllPurchaseOrders(
+        $this->repo->applyDateFilter(
+            $this->repo->buildBaseQuery($search), 'po.created_at', $filters
+        )
+    );
+
+    log_message('debug', '🎯 FILTER PARAMS: ' . json_encode($filters));
+
+
+    // Format datanya (termasuk produk)
+    $formattedData = array_map(function ($row) {
+        return [
+            'id'            => $row['id'],
+            'po_number'     => $row['po_number'],
+            'supplier_name' => $row['supplier_name'] ?? 'N/A',
+            'status'        => $row['status'] ?? 'Pending',
+            'products'      => $this->formatProducts($row['products'] ?? ''),
+            'created_at'    => $row['created_at']
+        ];
+    }, $data ?? []);
+
+    return [
+        'draw'            => intval($params['draw'] ?? 1),
+        'recordsTotal'    => $totalRecords,
+        'recordsFiltered' => $filteredRecords,
+        'data'            => $formattedData
+    ];
+}
+
+
+/**
+ * Format string produk menjadi HTML terstruktur
+ *
+ * @param string $products
+ * @return string
+ */
+public function formatProducts(string $products): string
+{
+    if (empty($products)) return "-";
+
+    $productsArray = explode('||', $products);
+    $productDetails = [];
+
+    foreach ($productsArray as $productString) {
+        $parts = explode('::', $productString);
+        if (count($parts) >= 4) {
+            // Format angka
+            $quantity = number_format($parts[2], 0, ',', '.') . ' pcs';
+            $price = 'Rp ' . number_format($parts[3], 0, ',', '.');
+
+            $productDetails[] = "<div class='d-flex align-items-center mb-2'>
+                <div class='flex-grow-1'>
+                    <div class='fw-medium'>{$parts[1]}</div>
+                    <small class='text-muted'>{$quantity} × {$price}</small>
+                </div>
+                <span class='badge bg-light text-muted border ms-2'>{$parts[0]}</span>
+            </div>";
+        }
+    }
+
+    return !empty($productDetails) 
+        ? implode('', $productDetails) 
+        : "-";
 }
 }

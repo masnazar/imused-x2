@@ -391,6 +391,12 @@ $routes->group('purchase-orders', ['filter' => 'auth'], function ($routes) {
         'as' => 'purchase_orders.get_data',
         'filter' => 'permission:view_purchase_order'
     ]);
+
+    $routes->post('getStatistics', 'PurchaseOrder::getStatistics', [ // 🔥 INI DIA YANG KURANG
+        'as' => 'purchase_orders.statistics',
+        'filter' => 'permission:view_purchase_order'
+    ]);
+
     $routes->get('get_products_by_supplier/(:num)', 'PurchaseOrder::get_products_by_supplier/$1', [
         'as' => 'purchase_orders.get_products',
         'filter' => 'permission:view_purchase_order'
@@ -468,6 +474,25 @@ $routes->group('marketplace-transactions', ['filter' => 'auth'], function ($rout
      */
     $routes->get('detail/(:segment)/(:num)', 'MarketplaceTransaction::detail/$1/$2');
     $routes->post('delete/(:segment)/(:num)', 'MarketplaceTransaction::delete/$1/$2');
+
+        /**
+     * @route Import transaksi marketplace via Excel
+     */
+    $routes->post('import/(:segment)', 'MarketplaceTransaction::importExcel/$1', ['filter' => 'auth']);
+
+        /**
+     * @route Download Template Import Transaksi
+     */
+    $routes->get('template/(:segment)', 'MarketplaceTransaction::downloadTemplate/$1', ['filter' => 'auth']);
+
+    // 📄 Konfirmasi import data
+    $routes->get('confirm-import/(:segment)', 'MarketplaceTransaction::confirmImport/$1');
+    // 🔥 Tambahin ini laey biar bisa nyimpen hasil import!
+    $routes->post('save-imported-data/(:segment)', 'MarketplaceTransaction::saveImportedData/$1');
+
+    $routes->post('track-resi', 'MarketplaceTransaction::trackResi');
+
+
 });
 
 

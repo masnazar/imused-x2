@@ -55,4 +55,12 @@ class InventoryModel extends Model
                     ->where('product_id', $productId)
                     ->first();
     }
+
+    public function getStock($warehouseId, $productId)
+{
+    return $this->where('warehouse_id', $warehouseId)
+                ->where('product_id', $productId)
+                ->select('stock')
+                ->first()['stock'] ?? null;
+}
 }

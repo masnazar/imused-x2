@@ -9,13 +9,14 @@ use CodeIgniter\Model;
  */
 class MarketplaceDetailTransactionModel extends Model
 {
-    protected $table = 'marketplace_detail_transactions';
+    protected $table = 'marketplace_detail_transaction';
     protected $primaryKey = 'id';
 
     protected $allowedFields = [
         'transaction_id',
         'product_id',
         'quantity',
+        'unit_selling_price',
         'hpp',
         'total_hpp',
         'created_at',

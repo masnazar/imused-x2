@@ -13,6 +13,7 @@
         "php": "^8.1",
         "codeigniter4/framework": "^4.0",
         "guzzlehttp/guzzle": "^7.9",
+        "phpoffice/phpspreadsheet": "^4.1",
         "tatter/relations": "^2.1"
     },
     "require-dev": {

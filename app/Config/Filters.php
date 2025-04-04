@@ -78,6 +78,10 @@ class Filters extends BaseFilters
             'purchase-orders/getData',
             'stock-transactions/get-stock-transactions',
             'stock-transactions/statistics',
+            'marketplace-transactions/get-statistics/*',
+            'marketplace-transactions/get-data/*',
+            'api/*',
+            'purchase-orders/getStatistics'
         ]],
     ],
         'after' => [

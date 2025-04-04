@@ -101,6 +101,7 @@ class Autoload extends AutoloadConfig
     'form',
     'url',
     'period',
-    'date'
+    'date',
+    'logtrail'
     ];
 }

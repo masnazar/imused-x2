@@ -36,11 +36,11 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Total PO</div>
-                        <div class="fs-21 fw-semibold"><?= number_format($totalPOs) ?></div>
+                        <div class="fs-21 fw-semibold stat-total">-</div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-primary-transparent text-primary fs-10">
-                            <i class="ri-arrow-up-line fs-11"></i> <?= $growthTotal ?>%
+                            <i class="ri-arrow-up-line fs-11"></i> <span class="growth-total">-%</span>
                         </span>
                     </div>
                 </div>
@@ -59,11 +59,11 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Pending PO</div>
-                        <div class="fs-21 fw-semibold"><?= number_format($pendingPOs) ?></div>
+                        <div class="fs-21 fw-semibold stat-pending">-</div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-warning-transparent text-warning fs-10">
-                            <i class="ri-arrow-up-line fs-11"></i> <?= $growthPending ?>%
+                            <i class="ri-arrow-up-line fs-11"></i> <span class="growth-pending">-%</span>
                         </span>
                     </div>
                 </div>
@@ -82,11 +82,11 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Completed PO</div>
-                        <div class="fs-21 fw-semibold"><?= number_format($completedPOs) ?></div>
+                        <div class="fs-21 fw-semibold stat-completed">-</div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-success-transparent text-success fs-10">
-                            <i class="ri-arrow-up-line fs-11"></i> <?= $growthCompleted ?>%
+                            <i class="ri-arrow-up-line fs-11"></i> <span class="growth-completed">-%</span>
                         </span>
                     </div>
                 </div>
@@ -105,11 +105,11 @@
                     </div>
                     <div>
                         <div class="fs-13 text-muted">Total Items</div>
-                        <div class="fs-21 fw-semibold"><?= number_format($totalItems) ?></div>
+                        <div class="fs-21 fw-semibold stat-items">-</div>
                     </div>
                     <div class="ms-auto">
                         <span class="badge bg-info-transparent text-info fs-10">
-                            <i class="ri-arrow-up-line fs-11"></i> <?= $growthItems ?>%
+                            <i class="ri-arrow-up-line fs-11"></i> <span class="growth-item">-%</span>
                         </span>
                     </div>
                 </div>
@@ -174,6 +174,35 @@ const statusConfig = {
     }
 };
 
+// 🔁 Trigger reload DataTable dan statistik ketika filter berubah
+$('#jenisFilter, [name="periode"], [name="start_date"], [name="end_date"]').on('change', function () {
+    // ⏳ Reload table
+    $('#purchaseOrdersTable').DataTable().ajax.reload();
+
+    // 🔢 Reload statistik
+    $.post("<?= base_url('purchase-orders/getStatistics') ?>", {
+        jenis_filter: $('#jenisFilter').val(),
+        start_date: $('[name="start_date"]').val(),
+        end_date: $('[name="end_date"]').val(),
+        periode: $('[name="periode"]').val(),
+        <?= csrf_token() ?>: '<?= csrf_hash() ?>'
+    }, function (res) {
+        if (res.error) return;
+
+        // Update UI kalau mau (optional)
+        $('.stat-total').text(res.total.toLocaleString('id-ID'));
+        $('.stat-pending').text(res.pending.toLocaleString('id-ID'));
+        $('.stat-completed').text(res.completed.toLocaleString('id-ID'));
+        $('.stat-items').text(res.total_items.toLocaleString('id-ID'));
+        $('.growth-total').text(res.growth_total.toFixed(1) + '%');
+$('.growth-pending').text(res.growth_pending.toFixed(1) + '%');
+$('.growth-completed').text(res.growth_completed.toFixed(1) + '%');
+$('.growth-items').text(res.growth_items.toFixed(1) + '%');
+
+    });
+});
+
+
 $(document).ready(function() {
     const table = $('#purchaseOrdersTable').DataTable({
         processing: true,
@@ -212,29 +241,11 @@ $(document).ready(function() {
                     `;
                 }
             },
-            { 
+            {
     data: 'products',
     className: 'align-middle',
     render: function(data) {
-        try {
-            if (!data || data === "-") return '<div class="text-muted">-</div>';
-            
-            // Format angka dalam list produk
-            const formattedProducts = data.split('||').map(product => {
-                const parts = product.split('::');
-                if (parts.length >= 4) {
-                    // Format quantity dan harga
-                    parts[2] = parseInt(parts[2]).toLocaleString('id-ID') + ' pcs';
-                    parts[3] = 'Rp ' + parseInt(parts[3]).toLocaleString('id-ID');
-                }
-                return parts.join('::');
-            }).join('||');
-            
-            return `<div class="product-list">${formattedProducts}</div>`;
-        } catch (e) {
-            console.error('Error rendering products:', e);
-            return '<div class="text-danger">Error memuat data</div>';
-        }
+        return data; // ✅ Langsung render HTML
     }
 },
             { 

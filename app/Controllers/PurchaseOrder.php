@@ -35,31 +35,11 @@ class PurchaseOrder extends Controller
 {
     log_message('info', '🟢 Memuat daftar Purchase Orders');
 
-    // Ambil data statistik DENGAN FILTER
-    $stats = $this->service->getPOStatistics(
-        $this->request->getGet() // Pass filter parameters
-    );
-
-    // Hitung persentase pertumbuhan (contoh dummy)
-    $growth = [
-        'total' => 12.5,
-        'pending' => -3.2,
-        'completed' => 8.7,
-        'items' => 15.3
-    ];
-
     return view('purchase_orders/index', [
-        'totalPOs' => $stats['total'],
-        'pendingPOs' => $stats['pending'],
-        'completedPOs' => $stats['completed'],
-        'totalItems' => $stats['total_items'],
-        'growthTotal' => $growth['total'],
-        'growthPending' => $growth['pending'],
-        'growthCompleted' => $growth['completed'],
-        'growthItems' => $growth['items'],
-        'date_filter' => view('partials/date_filter')
+        'date_filter' => view('partials/date_filter') // only filter
     ]);
 }
+
 
     /**
      * 📌 Menampilkan form tambah Purchase Order
@@ -204,78 +184,19 @@ class PurchaseOrder extends Controller
 public function getData()
 {
     try {
-        $request = \Config\Services::request();
-        $poModel = new \App\Models\PurchaseOrderModel();
+        $params = $this->request->getPost(); // ✅ Harus POST
 
-        $filters = [
-            'jenis_filter' => $request->getPost('jenis_filter'),
-            'start_date'   => $request->getPost('start_date'),
-            'end_date'     => $request->getPost('end_date'),
-            'periode'      => $request->getPost('periode'),
-        ];
+        $data = $this->service->getDataTable($params); // ⬅️ Pastikan ini DIKIRIM ke service
 
-        $draw = $request->getPost('draw');
-        $start = $request->getPost('start');
-        $length = $request->getPost('length');
-        $searchValue = $request->getPost('search')['value'] ?? '';
-
-        $data = $poModel->getPurchaseOrderData($start, $length, $searchValue, $filters);
-        $totalRecords = $poModel->countPurchaseOrders(null, $filters);
-        $filteredRecords = $poModel->countPurchaseOrders($searchValue, $filters);
-
-        $formattedData = array_map(function ($row) {
-            return [
-                'id'            => $row['id'],
-                'po_number'     => $row['po_number'],
-                'supplier_name' => $row['supplier_name'] ?? 'N/A',
-                'status'        => $row['status'] ?? 'Pending',
-                'products'      => $this->formatProducts($row['products'] ?? ''),
-                'created_at'    => $row['created_at']
-            ];
-        }, $data ?? []);
-
+        return $this->response->setJSON(array_merge([
+            csrf_token() => csrf_hash()
+        ], $data));
+    } catch (\Throwable $e) {
+        log_message('error', '[PurchaseOrder::getData] ' . $e->getMessage());
         return $this->response->setJSON([
-            'draw'            => intval($draw),
-            'recordsTotal'    => $totalRecords,
-            'recordsFiltered' => $filteredRecords,
-            'data'            => $formattedData
-        ]);
-    } catch (\Exception $e) {
-        log_message('error', '❌ Error di getData: ' . $e->getMessage());
-        return $this->response->setJSON([
-            'error' => 'Terjadi kesalahan saat memuat data'
+            'error' => 'Gagal memuat data PO'
         ])->setStatusCode(500);
     }
-}
-
-
-private function formatProducts($products)
-{
-    if (empty($products)) return "-";
-
-    $productsArray = explode('||', $products);
-    $productDetails = [];
-
-    foreach ($productsArray as $productString) {
-        $parts = explode('::', $productString);
-        if (count($parts) >= 4) {
-            // Format angka
-            $quantity = number_format($parts[2], 0, ',', '.') . ' pcs';
-            $price = 'Rp ' . number_format($parts[3], 0, ',', '.');
-            
-            $productDetails[] = "<div class='d-flex align-items-center mb-2'>
-                <div class='flex-grow-1'>
-                    <div class='fw-medium'>{$parts[1]}</div>
-                    <small class='text-muted'>{$quantity} × {$price}</small>
-                </div>
-                <span class='badge bg-light text-muted border ms-2'>{$parts[0]}</span>
-            </div>";
-        }
-    }
-
-    return !empty($productDetails) 
-        ? implode('', $productDetails) 
-        : "-";
 }
 
 // Di method view()
@@ -401,4 +322,25 @@ public function get_product_sku($product_id)
             'message' => $e->getMessage()
         ]);
     }
-}}
+}
+/**
+ * 🔄 Ambil statistik berdasarkan filter (dipakai oleh AJAX)
+ */
+public function getStatistics()
+{
+    try {
+        $filters = $this->request->getPost();
+        $stats = $this->service->getPOStatistics($filters);
+
+        return $this->response->setJSON(array_merge([
+            csrf_token() => csrf_hash()
+        ], $stats));
+    } catch (\Throwable $e) {
+        log_message('error', '[PurchaseOrder::getStatistics] ' . $e->getMessage());
+        return $this->response->setJSON([
+            'error' => 'Gagal memuat statistik PO'
+        ])->setStatusCode(500);
+    }
+}
+
+}

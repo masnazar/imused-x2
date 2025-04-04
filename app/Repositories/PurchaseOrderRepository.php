@@ -139,39 +139,16 @@ class PurchaseOrderRepository
      * @param string|null $search Kata kunci pencarian
      * @return array Data Purchase Order
      */
-    public function getPurchaseOrderData($start, $length, $search, $filters = [])
-    {
-        $builder = $this->db->table('purchase_orders po')
-            ->select('po.*, s.supplier_name, 
-                JSON_ARRAYAGG(
-                    JSON_OBJECT(
-                        "product_id", pod.product_id,
-                        "nama_produk", p.nama_produk,
-                        "quantity", pod.quantity,
-                        "unit_price", pod.unit_price,
-                        "total_price", pod.total_price
-                    )
-                ) AS products')
-            ->join('suppliers s', 's.id = po.supplier_id', 'left')
-            ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
-            ->join('products p', 'p.id = pod.product_id', 'left')
-            ->groupBy('po.id');
+    public function getPurchaseOrderData($start, $length, $search, $filters = []): array
+{
+    $builder = $this->buildBaseQuery($search);
 
-            // 🔥 Tambahin ini!
-if (!empty($filters)) {
-    $builder = $this->applyDateFilter($builder, 'po.created_at', $filters);
-}
-
-        if ($search) {
-            $builder->groupStart()
-                ->like('po.po_number', $search)
-                ->orLike('s.supplier_name', $search)
-                ->orLike('p.nama_produk', $search)
-                ->groupEnd();
-        }
-
-        return $builder->limit($length, $start)->get()->getResultArray();
+    if (!empty($filters)) {
+        $builder = $this->applyDateFilter($builder, 'po.created_at', $filters);
     }
+
+    return $builder->limit($length, $start)->get()->getResultArray();
+}
 
     /**
      * 📌 Cari Purchase Order berdasarkan ID
@@ -470,4 +447,35 @@ public function applyDateFilter($builder, string $column, array $filters): objec
     return $builder;
 }
     
+/**
+ * 📌 Build base query untuk DataTables dan statistik
+ *
+ * @param string|null $search
+ * @return BaseBuilder
+ */
+public function buildBaseQuery(?string $search = null): BaseBuilder
+{
+    $builder = $this->db->table('purchase_orders po')
+        ->select('po.*, s.supplier_name, 
+            GROUP_CONCAT(
+                CONCAT_WS("::", p.sku, p.nama_produk, pod.quantity, pod.unit_price)
+                SEPARATOR "||"
+            ) as products')
+        ->join('suppliers s', 's.id = po.supplier_id', 'left')
+        ->join('purchase_order_details pod', 'pod.purchase_order_id = po.id', 'left')
+        ->join('products p', 'p.id = pod.product_id', 'left')
+        ->where('po.deleted_at', null)
+        ->groupBy('po.id');
+
+    if ($search) {
+        $builder->groupStart()
+            ->like('po.po_number', $search)
+            ->orLike('s.supplier_name', $search)
+            ->orLike('p.nama_produk', $search)
+            ->groupEnd();
+    }
+
+    return $builder;
+}
+
 }
