@@ -40,4 +40,12 @@ class Services extends BaseService
             );
         }
 
+        public static function ForecastService(): \App\Services\ForecastService
+        {
+            return new \App\Services\ForecastService(
+                new \App\Repositories\MarketplaceTransactionRepository(),
+                new \App\Repositories\ProductRepository()
+            );
+        }
+
 }

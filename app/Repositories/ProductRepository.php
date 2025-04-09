@@ -22,12 +22,25 @@ class ProductRepository
     {
         try {
             return $this->builder
-                ->select('products.id, products.nama_produk, products.sku, products.hpp, products.stock, 
-                        products.total_nilai_stok, products.no_bpom, products.no_halal, 
-                        brands.brand_name')
-                ->join('brands', 'brands.id = products.brand_id', 'left')
-                ->get()
-                ->getResultArray();
+    ->select('
+        products.id,
+        products.nama_produk,
+        products.sku,
+        products.hpp,
+        products.stock,
+        products.total_nilai_stok,
+        products.no_bpom,
+        products.no_halal,
+        products.lead_time_days,
+        products.safety_stock,
+        products.min_stock,
+        products.max_stock,
+        brands.brand_name
+    ')
+    ->join('brands', 'brands.id = products.brand_id', 'left')
+    ->get()
+    ->getResultArray();
+
         } catch (\Exception $e) {
             log_message('error', "❌ Error mengambil semua produk: " . $e->getMessage());
             return [];
@@ -110,4 +123,49 @@ class ProductRepository
             return false;
         }
     }
+
+    public function findById(int $id): ?array
+{
+    return $this->builder
+        ->where('id', $id)
+        ->get()
+        ->getRowArray();
+}
+
+public function addStock(int $productId, int $qty): bool
+{
+    $product = $this->db->table('products')->where('id', $productId)->get()->getRow();
+
+    if (!$product) {
+        log_message('error', "[ProductRepo] Produk ID $productId tidak ditemukan");
+        return false;
+    }
+
+    $newStock = (int) $product->stock + $qty;
+    $stockValue = $newStock * (int) $product->hpp;
+
+    return $this->db->table('products')
+        ->where('id', $productId)
+        ->update([
+            'stock' => $newStock,
+            'total_nilai_stok' => $stockValue,
+        ]);
+}
+
+/**
+ * Kurangi stok produk
+ *
+ * @param int $productId
+ * @param int $quantity
+ * @return bool
+ */
+public function reduceStock(int $productId, int $quantity): bool
+{
+    return $this->db->table('products')
+        ->set('stock', 'stock - ' . (int) $quantity, false)
+        ->where('id', $productId)
+        ->update();
+}
+
+
 }

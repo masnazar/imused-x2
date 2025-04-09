@@ -491,9 +491,29 @@ $routes->group('marketplace-transactions', ['filter' => 'auth'], function ($rout
     $routes->post('save-imported-data/(:segment)', 'MarketplaceTransaction::saveImportedData/$1');
 
     $routes->post('track-resi', 'MarketplaceTransaction::trackResi');
-
+    $routes->post('update-resi/(:segment)/(:num)', 'MarketplaceTransaction::updateResiStatus/$1/$2');
 
 });
 
+/**
+ * 📦 Forecasting Stock Routes
+ */
+$routes->group('forecast', ['filter' => 'auth'], static function ($routes) {
+    /**
+     * GET /forecast
+     * 📊 Halaman utama forecast
+     */
+    $routes->get('/', 'Forecast::index', ['as' => 'forecast.index']);
 
+    /**
+     * POST /forecast/predict-single
+     * 🔮 Prediksi stok satu produk
+     */
+    $routes->post('predict-single', 'Forecast::predictSingle', ['as' => 'forecast.predictSingle']);
 
+    /**
+     * POST /forecast/predict-all
+     * 🔁 Prediksi semua produk
+     */
+    $routes->post('predict-all', 'Forecast::predictAll', ['as' => 'forecast.predictAll']);
+});

@@ -140,4 +140,44 @@ class Product extends Controller
             return redirect()->to('/products')->with('error', '❌ ' . $e->getMessage());
         }
     }
+
+    /**
+ * 🔮 Forecast stok produk berdasarkan historical sales
+ *
+ * @return \CodeIgniter\HTTP\ResponseInterface
+ */
+public function forecastStock()
+{
+    $this->validate([
+        'product_id'     => 'required|integer',
+        'start_date'     => 'required|valid_date[Y-m-d]',
+        'end_date'       => 'required|valid_date[Y-m-d]',
+        'forecast_days'  => 'required|integer|min_length[1]',
+    ]);
+
+    try {
+        /** @var \App\Services\ForecastService $forecastService */
+        $forecastService = service(ForecastService::class);
+
+        $productId     = (int) $this->request->getPost('product_id');
+        $startDate     = $this->request->getPost('start_date');
+        $endDate       = $this->request->getPost('end_date');
+        $forecastDays  = (int) $this->request->getPost('forecast_days');
+
+        $result = $forecastService->forecastProductStock($productId, $startDate, $endDate, $forecastDays);
+
+        return $this->response->setJSON([
+            csrf_token() => csrf_hash(),
+            'status'     => isset($result['error']) ? 'error' : 'success',
+            'data'       => $result
+        ]);
+    } catch (\Throwable $e) {
+        log_message('error', '[❌ forecastStock] ' . $e->getMessage());
+        return $this->response->setJSON([
+            csrf_token() => csrf_hash(),
+            'status'     => 'error',
+            'message'    => 'Terjadi kesalahan saat proses forecast.'
+        ]);
+    }
+}
 }

@@ -136,6 +136,10 @@ class MarketplaceTransaction extends BaseController
     try {
         $request = \Config\Services::request();
 
+         // ✅ Tambahin ini
+         $start = null;
+         $end = null;
+
         $params = [
             'draw'         => $request->getPost('draw'),
             'start'        => $request->getPost('start'),
@@ -155,42 +159,103 @@ class MarketplaceTransaction extends BaseController
         return $this->response->setJSON($data);
     } catch (Throwable $e) {
         log_message('error', '[MarketplaceTransaction::getTransactions] ' . $e->getMessage());
-        return $this->failServerError('Terjadi kesalahan saat memuat data.');
+        return $this->response->setJSON(['error' => 'Terjadi kesalahan saat memuat data.'])->setStatusCode(500);
     }
 }
 
 
 
-    /**
-     * Simpan data transaksi baru
-     */
-    public function store(string $platform): ResponseInterface
-    {
+public function store(string $platform): ResponseInterface
+{
+    try {
+        // 1. Enhanced Permission Check
+        if (!auth()->userHasPermission('create_marketplace_transaction')) {
+            LogTrailHelper::log('security', 'Akses ilegal ke store transaction', [
+                'platform' => $platform,
+                'ip' => $this->request->getIPAddress()
+            ]);
+            return $this->failForbidden('Akses ditolak untuk operasi ini.');
+        }
+
+        // 2. CSRF Protection
+        if (!$this->request->is('post')) {
+            return $this->failMethodNotAllowed();
+        }
+        
+        // 3. Strict Content Type
+        if (!$this->request->hasHeader('Content-Type', 'application/x-www-form-urlencoded')) {
+            return $this->failUnsupportedMediaType();
+        }
+
+        // 4. Input Processing
+        $input = $this->request->getPost();
+        $filteredInput = $this->service->sanitizeInput($input, $platform);
+        
+        // 5. Enhanced Validation
+        $validationRules = $this->service->getValidationRules($platform);
+        if (!$this->validate($validationRules)) {
+            $errors = $this->validator->getErrors();
+            LogTrailHelper::log('validation', 'Validasi gagal', $errors);
+            return $this->failValidationErrors($errors);
+        }
+
+        // 6. Database Transaction
+        db_connect()->transStart();
+        
         try {
-            $input = $this->request->getPost();
-
-            if (!$this->validate($this->service->getValidationRules())) {
-                return $this->failValidationErrors($this->validator->getErrors());
-            }
-
-            $id = $this->service->createTransaction($platform, $input);
-
+            $id = $this->service->createTransaction($platform, $filteredInput);
+            
+            // 7. Secure Logging
             LogTrailHelper::log(
                 'create',
-                'Menambahkan transaksi marketplace',
-                ['platform' => $platform, 'id' => $id]
+                'Transaksi marketplace dibuat',
+                [
+                    'platform' => $platform,
+                    'id' => $id,
+                    'metadata' => $this->service->getSafeMetadata($input)
+                ],
+                'low' // Sensitivity level
             );
-
-            return $this->response->setJSON([
-                'success' => true,
-                'message' => 'Transaksi berhasil ditambahkan.'
-            ]);
-        } catch (Throwable $e) {
-            log_message('error', '[MarketplaceTransaction::store] ' . $e->getMessage());
-            return $this->failServerError('Gagal menyimpan transaksi.');
+            
+            db_connect()->transCommit();
+        } catch (\Throwable $e) {
+            db_connect()->transRollback();
+            throw $e;
         }
-    }
 
+        // 8. Rate Limiting
+        $throttler = \Config\Services::throttler();
+        if ($throttler->check('transaction-store', 5, MINUTE) === false) {
+            return $this->failTooManyRequests('Terlalu banyak permintaan. Silakan coba lagi nanti.');
+        }
+
+        // 9. Standardized Response
+        return $this->respondCreated([
+            'success' => true,
+            'data' => [
+                'id' => $id,
+                'links' => [
+                    'self' => site_url("marketplace-transactions/{$platform}/{$id}"),
+                    'collection' => site_url("marketplace-transactions/{$platform}")
+                ]
+            ],
+            'message' => lang('Transactions.created')
+        ]);
+
+    } catch (\Throwable $e) {
+        // 10. Secure Error Handling
+        $errorId = uniqid('TRX-ERR-');
+        log_message('error', "[{$errorId}] MarketplaceTransaction::store: " . $e->getMessage());
+        
+        return $this->respond([
+            'success' => false,
+            'error' => [
+                'id' => $errorId,
+                'message' => lang('Transactions.creationFailed')
+            ]
+        ], 500);
+    }
+}
     /**
      * Tampilkan detail transaksi
      */
@@ -205,11 +270,23 @@ class MarketplaceTransaction extends BaseController
 
         // ✅ Ambil juga produk-produknya
         $products = $this->service->getTransactionProducts($id); // Tambahin ini
+        $tracking = null;
+        $trackingSummary = null;
+
+        if (!empty($transaction['last_tracking_data'])) {
+            $decoded = json_decode($transaction['last_tracking_data'], true);
+            if (is_array($decoded)) {
+                $tracking = $decoded;
+                $trackingSummary = $decoded['summary'] ?? null;
+            }
+        }
 
         return view('marketplace_transaction/detail', [
             'platform'     => $platform,
             'transaction'  => $transaction,
             'products'     => $products,
+            'tracking'    => $tracking,
+            'trackingSummary' => $trackingSummary
         ]);
     } catch (Throwable $e) {
         log_message('error', '[MarketplaceTransaction::detail] ' . $e->getMessage());
@@ -245,38 +322,42 @@ class MarketplaceTransaction extends BaseController
     /**
  * Mengimpor file Excel dan validasi awal (group by order_number)
  */
-public function importExcel(string $platform)
+public function importExcel(string $platform): ResponseInterface
 {
+
     if (!$this->request->isAJAX()) {
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'Akses tidak diizinkan.'
-        ])->setStatusCode(403);
+        return $this->failForbidden('Akses tidak diizinkan.');
     }
 
     $file = $this->request->getFile('file_excel');
 
-    if (!$file || !$file->isValid()) {
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'File tidak valid atau gagal diunggah.'
-        ]);
+
+    $allowedMimes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    if (!in_array($file->getMimeType(), $allowedMimes, true)) {
+        return $this->failValidationErrors(['Tipe file tidak valid']);
     }
 
-    $ext = $file->getExtension();
-    if (!in_array($ext, ['xls', 'xlsx'])) {
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'Format file tidak didukung. Gunakan .xls atau .xlsx.'
-        ]);
+    // Cek ekstensi & size
+    $allowedExtensions = ['xls', 'xlsx'];
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if (!in_array(strtolower($file->getExtension()), $allowedExtensions)) {
+        return $this->failValidationErrors(['Format file tidak didukung. Gunakan .xls atau .xlsx.']);
     }
+    if ($file->getSize() > $maxSize) {
+        return $this->failValidationErrors(['Ukuran file melebihi batas maksimum 5MB.']);
+    }
+    
 
     try {
-        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getTempName());
+        $spreadsheet = IOFactory::load($file->getTempName());
         $sheet = $spreadsheet->getActiveSheet();
-        $rows = $sheet->toArray(null, true, true, true); // keep Excel format
+        $rows = $sheet->toArray(null, true, true, true);
 
-        $header = [
+        if (count($rows) > 4000) {
+            return $this->failValidationErrors(['Jumlah baris melebihi batas maksimum 4000 baris.']);
+        }
+
+        $headerMap = [
             'A' => 'date',
             'B' => 'brand_id',
             'C' => 'order_number',
@@ -291,93 +372,137 @@ public function importExcel(string $platform)
             'L' => 'admin_fee'
         ];
 
-        // Load models
-        $productModel     = model('App\Models\ProductModel');
-        $warehouseModel   = model('App\Models\WarehouseModel');
-        $courierModel     = model('App\Models\CourierModel');
-        $transactionModel = model('App\Models\MarketplaceTransactionModel');
-        $inventoryModel   = model('App\Models\InventoryModel');
-        $brandModel       = model('App\Models\BrandModel');
+        // Load semua model
+        $brandModel       = new BrandModel();
+        $productModel     = new ProductModel();
+        $warehouseModel   = new \App\Models\WarehouseModel();
+        $courierModel     = new \App\Models\CourierModel();
+        $inventoryModel   = new InventoryModel();
+        $transactionModel = new MarketplaceTransactionModel();
 
-        $importedData = [];
         $errorMessages = [];
+        $importedData = [];
+
+        // Buat mapping brand, gudang, kurir
+        $brands      = array_column($brandModel->findAll(), null, 'id');
+        $warehouses  = array_column($warehouseModel->findAll(), null, 'code');
+        $couriers    = array_column($courierModel->findAll(), null, 'courier_code');
+
+        // Ambil semua product sekali aja
+        $allProducts = $productModel->findAll();
+        $productMap = [];
+        foreach ($allProducts as $p) {
+            $productMap[$p['brand_id']][$p['sku']] = $p;
+        }
+
+        // Ambil transaksi yang sudah ada (untuk cek duplikat)
+        $existingTransactions = $transactionModel
+            ->select('order_number, tracking_number')
+            ->findAll();
+        $existingSet = [];
+        foreach ($existingTransactions as $tx) {
+            $existingSet[$tx['order_number'] . $tx['tracking_number']] = true;
+        }
 
         foreach (array_slice($rows, 1) as $i => $row) {
             $rowNumber = $i + 2;
-
-            // Map kolom
             $rowData = [];
-            foreach ($header as $col => $key) {
-                $rowData[$key] = $row[$col] ?? null;
+
+            // Sanitize dan map kolom
+            foreach ($headerMap as $col => $key) {
+                $rowData[$key] = trim((string)($row[$col] ?? ''));
             }
 
-            // Format tanggal dari Excel
-            if (!empty($rowData['date'])) {
-                if (is_numeric($rowData['date'])) {
-                    // Excel number format
-                    $excelDate = ExcelDate::excelToDateTimeObject($rowData['date']);
-                    $rowData['date'] = $excelDate->format('Y-m-d');
-                } elseif (strtotime($rowData['date'])) {
-                    // String fallback (e.g. 02/04/2025)
-                    $rowData['date'] = date('Y-m-d', strtotime($rowData['date']));
-                } else {
-                    $errorMessages[] = "Baris {$rowNumber}: Format tanggal tidak valid.";
-                    continue;
+            // Tanggal
+            if (is_numeric($rowData['date'])) {
+                $rowData['date'] = ExcelDate::excelToDateTimeObject($rowData['date'])->format('Y-m-d');
+            } elseif (strtotime($rowData['date'])) {
+                $rowData['date'] = date('Y-m-d', strtotime($rowData['date']));
+            } else {
+                $errorMessages[] = "Baris $rowNumber: Format tanggal tidak valid.";
+                continue;
+            }
+
+            // Validasi brand
+            $brand = $brands[$rowData['brand_id']] ?? null;
+            if (!$brand) {
+                $errorMessages[] = "Baris $rowNumber: Brand ID '{$rowData['brand_id']}' tidak ditemukan.";
+                continue;
+            }
+
+            // Validasi produk (SKU + brand match)
+            $product = $productMap[$rowData['brand_id']][$rowData['sku']] ?? null;
+            if (!$product) {
+                $brandName = esc($brand['brand_name']);
+                $errorMessages[] = "Baris $rowNumber: SKU '{$rowData['sku']}' tidak ditemukan pada brand <strong>{$brandName}</strong>.";
+                continue;
+            }
+
+            // Gudang & kurir
+            $warehouse = $warehouses[$rowData['warehouse_code']] ?? null;
+            if (!$warehouse) {
+                $errorMessages[] = "Baris $rowNumber: Kode gudang '{$rowData['warehouse_code']}' tidak valid.";
+                continue;
+            }
+
+            $courier = $couriers[$rowData['courier_code']] ?? null;
+            if (!$courier) {
+                $errorMessages[] = "Baris $rowNumber: Kode kurir '{$rowData['courier_code']}' tidak valid.";
+                continue;
+            }
+
+            // Validasi numeric
+            foreach (['quantity', 'selling_price', 'discount', 'admin_fee'] as $numField) {
+                if (!is_numeric($rowData[$numField])) {
+                    $errorMessages[] = "Baris $rowNumber: Nilai {$numField} tidak valid.";
+                    continue 2;
                 }
             }
-            
 
-            // Validasi SKU → Product
-            $product = $productModel->where('sku', $rowData['sku'])->first();
-            if (!$product) {
-                $errorMessages[] = "Baris {$rowNumber}: SKU '{$rowData['sku']}' tidak ditemukan.";
+            // Cek duplikat
+            $txKey = $rowData['order_number'] . $rowData['tracking_number'];
+            if (isset($existingSet[$txKey])) {
+                $errorMessages[] = "Baris $rowNumber: Duplikat transaksi (order/resi sudah ada).";
                 continue;
             }
 
-            // Validasi Warehouse
-            $warehouse = $warehouseModel->where('code', $rowData['warehouse_code'])->first();
-            if (!$warehouse) {
-                $errorMessages[] = "Baris {$rowNumber}: Kode gudang '{$rowData['warehouse_code']}' tidak ditemukan.";
-                continue;
-            }
-
-            // Validasi Courier
-            $courier = $courierModel->where('courier_code', $rowData['courier_code'])->first();
-            if (!$courier) {
-                $errorMessages[] = "Baris {$rowNumber}: Kode kurir '{$rowData['courier_code']}' tidak ditemukan.";
-                continue;
-            }
-
-            // Validasi stok
+            // Cek stok
             $stock = $inventoryModel->getStock($warehouse['id'], $product['id']);
-            if ($stock === null || $stock < $rowData['quantity']) {
-                $errorMessages[] = "Baris {$rowNumber}: Stok SKU '{$rowData['sku']}' tidak mencukupi.";
+            if ($stock === null || $stock < (int)$rowData['quantity']) {
+                $errorMessages[] = "Baris $rowNumber: Stok tidak mencukupi untuk SKU '{$rowData['sku']}'.";
                 continue;
             }
 
-            // Duplikat order
-            $exists = $transactionModel
-                ->where('order_number', $rowData['order_number'])
-                ->where('tracking_number', $rowData['tracking_number'])
-                ->first();
-            if ($exists) {
-                $errorMessages[] = "Baris {$rowNumber}: Order '{$rowData['order_number']}' / Resi '{$rowData['tracking_number']}' sudah ada.";
-                continue;
+            // ✅ Tambahkan ke hasil akhir
+            $importedData[] = [
+                'date'           => $rowData['date'],
+                'brand_id'       => $rowData['brand_id'],
+                'order_number'   => $rowData['order_number'],
+                'tracking_number'=> $rowData['tracking_number'],
+                'courier_id'     => $courier['id'],
+                'warehouse_id'   => $warehouse['id'],
+                'store_name'     => $rowData['store_name'],
+                'sku'            => $rowData['sku'],
+                'product_id'     => $product['id'],
+                'quantity'       => (int)$rowData['quantity'],
+                'selling_price'  => (float)$rowData['selling_price'],
+                'discount'       => (float)$rowData['discount'],
+                'admin_fee'      => (float)$rowData['admin_fee'],
+                'hpp'            => (float)$product['hpp'],
+                'platform'       => ucfirst(strtolower($platform))
+            ];
+
+            // Limit error max 20 supaya gak overload
+            if (count($errorMessages) >= 20) {
+                $errorMessages[] = "<strong>Baris lainnya tidak dicek karena error terlalu banyak.</strong>";
+                break;
             }
-
-            // Mapping & enrich data
-            $rowData['product_id']    = $product['id'];
-            $rowData['hpp']           = $product['hpp'];
-            $rowData['warehouse_id']  = $warehouse['id'];
-            $rowData['courier_id']    = $courier['id'];
-            $rowData['platform']      = ucfirst(strtolower($platform));
-
-            $importedData[] = $rowData;
         }
+        
 
         if (!empty($errorMessages)) {
             return $this->response->setJSON([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => implode('<br>', $errorMessages)
             ]);
         }
@@ -385,19 +510,16 @@ public function importExcel(string $platform)
         session()->set('importedData', $importedData);
 
         return $this->response->setJSON([
-            'status' => 'success',
-            'message' => 'Import sukses.',
-            'redirect' => base_url("marketplace-transactions/confirm-import/$platform")
+            'status'   => 'success',
+            'message'  => 'Data berhasil diimpor.',
+            'redirect' => base_url("marketplace-transactions/confirm-import/{$platform}"),
+            csrf_token() => csrf_hash()
         ]);
-
     } catch (\Throwable $e) {
-        log_message('error', '[importExcel] Gagal import: ' . $e->getMessage());
-        log_message('error', '[importExcel] Trace: ' . $e->getTraceAsString());
+        log_message('error', '[🛑 ImportExcel Error] ' . $e->getMessage());
+        log_message('error', '[Trace] ' . $e->getTraceAsString());
 
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'Terjadi kesalahan saat membaca file.'
-        ]);
+        return $this->failServerError('Gagal membaca file atau terjadi kesalahan internal.');
     }
 }
 
@@ -423,7 +545,7 @@ public function importExcel(string $platform)
         // Data contoh
         $sample = [
             date('Y-m-d'), 1, 'INV-20250402-001', 'TRACK123456',
-            'JNE', 'Toko ABC', 'GDG1', 'SKU-001',
+            'JNE', 'Toko ABC', 'GDG1', 'SKU',
             2, 150000, 5000, 3000
         ];
 
@@ -432,7 +554,7 @@ public function importExcel(string $platform)
         $sheet->fromArray($sample, null, 'A2');
 
         // Siapkan file Excel untuk download
-        $filename = 'template_import_' . strtolower($platform) . '_' . date('Ymd_His') . '.xlsx';
+        $filename = 'data_order_import_' . strtolower($platform) . '_' . date('d-m-Y_H:i:s') . '.xlsx';
         $writer = new Xlsx($spreadsheet);
 
         // Output response file
@@ -453,16 +575,38 @@ public function importExcel(string $platform)
  */
 public function confirmImport(string $platform)
 {
-    $importedData = session()->get('importedData') ?? [];
+    $rawData = session()->get('importedData') ?? [];
 
-    if (empty($importedData)) {
+    if (empty($rawData)) {
         return redirect()->to(base_url("marketplace-transactions/$platform"))
                          ->with('error', 'Tidak ada data untuk dikonfirmasi.');
     }
 
+    // 🔄 Ambil model
+    $brandModel     = model('App\Models\BrandModel');
+    $productModel   = model('App\Models\ProductModel');
+    $warehouseModel = model('App\Models\WarehouseModel');
+    $courierModel   = model('App\Models\CourierModel');
+
+    // 🔍 Ambil semua referensi
+    $brands     = array_column($brandModel->findAll(), null, 'id');
+    $products   = array_column($productModel->findAll(), null, 'id');
+    $warehouses = array_column($warehouseModel->findAll(), null, 'id');
+    $couriers   = array_column($courierModel->findAll(), null, 'id');
+
+    // 🧩 Lengkapi data untuk ditampilin
+    $displayData = array_map(function ($item) use ($brands, $products, $warehouses, $couriers) {
+        $item['brand_name']      = $brands[$item['brand_id']]['brand_name'] ?? '-';
+        $item['product_name']    = $products[$item['product_id']]['product_name'] ?? '-';
+        $item['sku']             = $products[$item['product_id']]['sku'] ?? '-';
+        $item['warehouse_code']  = $warehouses[$item['warehouse_id']]['code'] ?? '-';
+        $item['courier_code']    = $couriers[$item['courier_id']]['courier_code'] ?? '-';
+        return $item;
+    }, $rawData);
+
     return view('marketplace_transaction/confirm_import', [
-        'importedData' => $importedData,
-        'platform' => $platform
+        'importedData' => $displayData,
+        'platform'     => $platform
     ]);
 }
 
@@ -551,18 +695,30 @@ public function saveImportedData(string $platform)
                 ->where('product_id', $detail['product_id'])
                 ->first();
 
-            if ($inventory) {
-                $inventoryModel->update($inventory['id'], [
-                    'stock' => $inventory['stock'] - $detail['quantity'],
-                    'updated_at' => date('Y-m-d H:i:s')
-                ]);
-            }
+                if ($inventory) {
+                    $currentStock = $inventory['stock'];
+                    $qty = $detail['quantity'];
+                
+                    if ($currentStock < $qty) {
+                        $db->transRollback();
+                        return redirect()->back()->with('error', "Stok tidak mencukupi untuk produk {$product['product_name']} di gudang {$data['warehouse_id']}. Tersedia: $currentStock, diminta: $qty.");
+                    }
+                
+                    $inventoryModel->update($inventory['id'], [
+                        'stock' => $currentStock - $qty,
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ]);
+                }
 
             // 🔻 Update Product Stock
             $product = $productModel->find($detail['product_id']);
             if ($product) {
+                $newStock = $product['stock'] - $detail['quantity'];
+                $totalStockValue = $newStock * $product['hpp'];
+
                 $productModel->update($product['id'], [
                     'stock' => $product['stock'] - $detail['quantity'],
+                    'hpp' => $product['hpp'], // ⬅️ Tambahkan ini!
                     'updated_at' => date('Y-m-d H:i:s')
                 ]);
             }
@@ -617,7 +773,8 @@ public function trackResi()
             ]);
         }
 
-        $lastStatus = strtolower($result['data']['summary']['status']);
+        $summary = $result['data']['summary'] ?? [];
+        $lastStatus = strtolower($summary['status'] ?? '');
         $newStatus = 'Dalam Perjalanan';
 
         if (str_contains($lastStatus, 'delivered')) {
@@ -626,19 +783,44 @@ public function trackResi()
             $newStatus = 'Returned';
         }
 
-        // Update ke DB
+        log_message('debug', '[📦 TRACKING DEBUG] Data yang akan diupdate: ' . json_encode([
+            'status' => $newStatus,
+            'last_tracking_data' => $result['data'],
+            'last_tracking_status' => strtoupper($summary['status'] ?? '-'),
+            'awb' => $awb,
+            'courier' => $courier
+        ]));
+
         $model = new \App\Models\MarketplaceTransactionModel();
-        $model->where('tracking_number', $awb)->set(['status' => $newStatus])->update();
+
+        $model->where('tracking_number', $awb)
+      ->orWhere('tracking_number', strtoupper($awb))
+      ->orWhere('tracking_number', strtolower($awb))
+      ->set([
+          'status'               => $newStatus,
+          'last_tracking_data'   => json_encode($result['data']),
+          'last_tracking_status' => strtoupper($summary['status'] ?? '-')
+      ])
+      ->update();
+
+
+
+      log_message('debug', '[🛠️ TRACKING UPDATE] Baris yang diupdate: ' . $model->db->affectedRows());
+
+      log_message('debug', '🔗 Request URL: ' . $url);
+        
 
         return $this->response->setJSON([
             'status' => 'success',
-            'data' => $result['data']
+            'data' => $result['data'],
+            csrf_token() => csrf_hash()
         ]);
     } catch (\Throwable $e) {
         log_message('error', '❌ Error trackResi: ' . $e->getMessage());
         return $this->response->setJSON([
             'status' => 'error',
-            'message' => 'Gagal menghubungi API.'
+            'message' => 'Gagal menghubungi API.',
+            csrf_token() => csrf_hash()
         ]);
     }
 }

@@ -32,6 +32,8 @@ class MarketplaceTransactionModel extends Model
         'created_at',
         'updated_at',
         'processed_by',
+        'last_tracking_data',     // 🟢 Tambahkan ini
+        'last_tracking_status'
     ];
 
     protected $useTimestamps = true;

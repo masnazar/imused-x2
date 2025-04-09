@@ -27,10 +27,9 @@
         </h1>
     </div>
     <div class="btn-list">
-        <button onclick="fetchTrackingStatus('<?= $transaction['courier_code'] ?>', '<?= $transaction['tracking_number'] ?>')" 
-                class="btn btn-warning btn-wave">
-            <i class="fas fa-shipping-fast me-1"></i> Update Resi
-        </button>
+    <button onclick="fetchTrackingStatus('<?= $transaction['courier_code'] ?>', '<?= $transaction['tracking_number'] ?>')" class="btn btn-warning btn-wave">
+    <i class="fas fa-sync-alt me-1"></i> Update Resi
+</button>
         <button onclick="window.print()" class="btn btn-primary btn-wave">
             <i class="ri-printer-line me-1"></i> Print
         </button>
@@ -121,24 +120,248 @@
                     </table>
                 </div>
             </div>
-
-            <!-- Timeline Tracking -->
-            <div class="col-xl-12">
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <h6 class="card-title"><i class="ri-map-pin-time-line me-2"></i>Status Pesanan Terakhir</h6>
-                    </div>
-                    <div class="card-body">
-                        <ul id="trackingTimeline" class="timeline"></ul>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- Scripts -->
+<?php if (!empty($trackingSummary)): ?>
+<div class="card custom-card mt-4">
+    <div class="card-header">
+        <h6 class="card-title">
+            <i class="ri-truck-line me-2"></i> Ringkasan Pengiriman
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="row gy-3">
+
+            <!-- Nomor Resi + Kurir -->
+            <div class="col-md-12 border-bottom pb-3">
+                <div class="row gy-2">
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-barcode-line me-1 text-primary"></i> Nomor Resi:
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <strong><?= esc($trackingSummary['awb'] ?? '-') ?></strong>
+                            <button onclick="copyText('<?= esc($trackingSummary['awb']) ?>')" class="btn btn-sm btn-light ms-2">
+                                <i class="ri-file-copy-line"></i> Salin
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-truck-line me-1 text-primary"></i> Kurir:
+                        </div>
+                        <strong>
+                            <?= esc($trackingSummary['courier'] ?? '-') ?>
+                            <?= !empty($trackingSummary['service']) ? '(' . esc($trackingSummary['service']) . ')' : '' ?>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status + Update Time + Berat -->
+            <div class="col-md-12 border-bottom pb-3 pt-3">
+                <div class="row gy-2">
+                    <div class="col-md-4">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-information-line me-1 text-primary"></i> Status Terkini:
+                        </div>
+                        <span class="badge bg-info">
+                            <?= esc(ucwords(strtolower($trackingSummary['status'] ?? '-'))) ?>
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-time-line me-1 text-primary"></i> Waktu Update:
+                        </div>
+                        <strong><?= date('D, d M Y H:i', strtotime($trackingSummary['date'] ?? now())) ?></strong>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-weight-line me-1 text-primary"></i> Berat Paket:
+                        </div>
+                        <strong><?= esc($trackingSummary['weight'] ?? '-') ?> gram</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kota Asal + Tujuan -->
+            <div class="col-md-12 border-bottom pb-3 pt-3">
+                <div class="row gy-2">
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-map-pin-line me-1 text-primary"></i> Kota Asal:
+                        </div>
+                        <p class="fw-medium mb-0"><?= esc($tracking['detail']['origin'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-map-pin-user-line me-1 text-primary"></i> Kota Tujuan:
+                        </div>
+                        <p class="fw-medium mb-0"><?= esc($tracking['detail']['destination'] ?? '-') ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pengirim + Penerima -->
+            <div class="col-md-12 pt-3">
+                <div class="row gy-2">
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-user-location-line me-1 text-primary"></i> Pengirim:
+                        </div>
+                        <p class="fw-medium mb-0"><?= esc($tracking['detail']['shipper'] ?? '-') ?></p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-1 text-muted">
+                            <i class="ri-user-received-2-line me-1 text-primary"></i> Penerima:
+                        </div>
+                        <p class="fw-medium mb-0"><?= esc($tracking['detail']['receiver'] ?? '-') ?></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<button
+  class="btn btn-outline-dark"
+  onclick="showTrackingModal('<?= esc($transaction['courier_code']) ?>', '<?= esc($transaction['tracking_number']) ?>')">
+  <i class="ri-map-pin-time-line me-1"></i> Lihat Timeline
+</button>
+
+
+
+<?php
+$tracking = $transaction['last_tracking_data'] 
+    ? json_decode($transaction['last_tracking_data'], true)
+    : null;
+
+// Fungsi format tanggal Indonesia
+function indonesian_date($date) {
+    $months = array(
+        1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    );
+    $days = array(
+        'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa',
+        'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat',
+        'Saturday' => 'Sabtu'
+    );
+    
+    $dateObj = date_create($date);
+    return [
+        'full_date' => $dateObj->format('d') . ' ' . $months[$dateObj->format('n')] . ' ' . $dateObj->format('Y'),
+        'day_name' => $days[$dateObj->format('l')],
+        'time' => $dateObj->format('H:i')
+    ];
+}
+?>
+
+<!-- Start:: row-1 -->
+        <div class="card custom-card border overflow-hidden mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card-title">
+                    <i class="ri-truck-line me-1"></i> Riwayat Pengiriman
+                </div>
+                <button class="btn btn-sm btn-info" onclick="fetchTrackingStatus('<?= esc($transaction['courier_code']) ?>', '<?= esc($transaction['tracking_number']) ?>')">
+                    <i class="ri-refresh-line"></i> Perbarui Status
+                </button>
+            </div>
+            <div class="card-body bg-light">
+                <?php if ($tracking && isset($tracking['history'])): ?>
+                    <?php 
+                    $groupedLogs = [];
+                    foreach (array_reverse($tracking['history']) as $log) {
+                        $date = date('Y-m-d', strtotime($log['date']));
+                        $groupedLogs[$date][] = $log;
+                    }
+                    ?>
+                    
+                    <div class="timeline container">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="timeline-container">
+                                    <?php foreach ($groupedLogs as $date => $logs): ?>
+                                        <?php $formattedDate = indonesian_date($date); ?>
+                                        
+                                        <div class="timeline-end mb-4">
+                                            <span class="p-1 fs-11 bg-primary2 text-fixed-white backdrop-blur text-center border border-primary2 border-opacity-10 rounded-1 lh-1 fw-medium">
+                                                <?= $formattedDate['full_date'] ?>
+                                            </span>
+                                        </div>
+                                        
+                                        <?php foreach ($logs as $log): ?>
+                                            <?php $logTime = indonesian_date($log['date']); ?>
+                                            <div class="timeline-continue">
+                                                <div class="timeline-right">
+                                                    <div class="timeline-content">
+                                                        <p class="timeline-date text-muted mb-2">
+                                                            <?= $logTime['time'] ?>, <?= $logTime['day_name'] ?>
+                                                        </p>
+                                                        <div class="timeline-box border border-primary2 border-opacity-25">
+                                                            <p class="text-muted mb-0">
+                                                                <?= $log['desc'] ?>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endforeach; ?>
+                                    
+                                    <?php
+                                        $status = strtolower($trackingSummary['status'] ?? '');
+                                        $badgeClass = 'bg-secondary';
+
+                                        if (str_contains($status, 'delivered')) {
+                                            $badgeClass = 'bg-success';
+                                        } elseif (str_contains($status, 'return')) {
+                                            $badgeClass = 'bg-danger';
+                                        } elseif ($status) {
+                                            $badgeClass = 'bg-warning';
+                                        }
+                                        ?>
+                                        <div class="timeline-end mb-5">
+                                            <span class="p-1 fs-11 <?= $badgeClass ?> text-fixed-white backdrop-blur text-center border border-primary2 border-opacity-10 rounded-1 lh-1 fw-medium">
+                                                Status Terakhir: <?= esc(ucwords($status)) ?>
+                                            </span>
+                                        </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-5">
+                        <p class="text-muted mb-3">
+                            <i class="ri-inbox-line fs-2"></i>
+                        </p>
+                        <p class="text-muted">Belum ada riwayat pengiriman</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+<!-- End:: row-1 -->
 <script>
+function formatIndonesianDate(dateString) {
+    const months = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    
+    const date = new Date(dateString);
+    return {
+        fullDate: `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`,
+        day: days[date.getDay()],
+        time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    };
+}
+
 function copyOrderNumber() {
     const text = document.getElementById("orderNumber").innerText;
     navigator.clipboard.writeText(text).then(() => {
@@ -146,11 +369,26 @@ function copyOrderNumber() {
     });
 }
 
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        Swal.fire("Tersalin!", "Nomor resi berhasil disalin!", "success");
+    });
+}
+
+function showTrackingModal(courier, awb) {
+  $('#trackingModal').modal('show');
+  fetchTrackingStatus(courier, awb, true); // showInModal = true
+}
+
 function fetchTrackingStatus(courier, awb) {
     Swal.fire({
-        title: "Tunggu sebentar...",
-        text: "Mengambil status pengiriman...",
-        didOpen: () => Swal.showLoading()
+        title: "Memuat...",
+        html: `<div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+               </div>
+               <div class="mt-2">Memperbarui status pengiriman</div>`,
+        allowOutsideClick: false,
+        showConfirmButton: false
     });
 
     $.ajax({
@@ -161,25 +399,115 @@ function fetchTrackingStatus(courier, awb) {
             awb,
             <?= csrf_token() ?>: "<?= csrf_hash() ?>"
         },
-        success: function (res) {
+        success: function(res) {
             Swal.close();
+            const container = $("#modalTrackingTimeline");
+            container.empty();
 
-            if (res.status === "success") {
-                const timeline = $("#trackingTimeline");
-                timeline.empty();
-                res.data.history.forEach((log) => {
-                    timeline.append(`<li class="timeline-item"><strong>${log.date}</strong> - ${log.desc}</li>`);
+            if (res.status === "success" && res.data.history?.length > 0) {
+                const grouped = res.data.history.reverse().reduce((acc, log) => {
+                    const dateKey = log.date.split(' ')[0];
+                    if (!acc[dateKey]) acc[dateKey] = [];
+                    acc[dateKey].push(log);
+                    return acc;
+                }, {});
+
+                Object.entries(grouped).forEach(([dateKey, logs]) => {
+                    const { fullDate } = formatIndonesianDate(dateKey);
+                    
+                    // Tambah tanggal header
+                    container.append(`
+                        <div class="timeline-end mb-4 mt-3">
+                            <span class="p-1 fs-12 bg-primary text-white border border-primary border-opacity-25 rounded-1">
+                                ${fullDate}
+                            </span>
+                        </div>
+                    `);
+
+                    // Tambah item log
+                    logs.forEach(log => {
+                        const { day, time } = formatIndonesianDate(log.date);
+                        container.append(`
+                            <div class="timeline-continue">
+                                <div class="timeline-right">
+                                    <div class="timeline-content">
+                                        <p class="timeline-date text-muted mb-2 fs-12">
+                                            ${time} • ${day}
+                                        </p>
+                                        <div class="timeline-box border border-primary border-opacity-10 bg-white p-3 rounded-2 shadow-sm">
+                                            <div class="d-flex align-items-start gap-2">
+                                                <i class="ri-map-pin-2-line fs-16 text-primary mt-1"></i>
+                                                <span class="text-muted fs-14">${log.desc}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `);
+                    });
                 });
-                Swal.fire("Sukses!", "Status pesanan berhasil diperbarui", "success");
+                
+                // Tambah footer timeline
+                container.append(`
+                    <div class="timeline-end mt-4">
+                        <span class="p-1 fs-12 bg-success text-white border border-success border-opacity-25 rounded-1">
+                            Status Terakhir: ${res.data.summary?.status ?? '-'}
+                        </span>
+                    </div>
+                `);
+
             } else {
-                Swal.fire("Gagal", res.message, "error");
+                container.html(`
+                    <div class="text-center py-5">
+                        <div class="avatar avatar-xl bg-light text-muted rounded-2 mb-3">
+                            <i class="ri-inbox-line fs-24"></i>
+                        </div>
+                        <p class="text-muted mb-0">Belum ada data tracking tersedia</p>
+                    </div>
+                `);
             }
+
+            $('#modalTracking').modal('show');
         },
-        error: function () {
-            Swal.fire("Error", "Gagal menghubungi API tracking", "error");
+        error: function(xhr) {
+            Swal.fire("Gagal", "Gagal memuat data tracking", "error");
+            console.error("Error:", xhr.responseText);
         }
     });
 }
 </script>
 
+<!-- Modal Timeline Tracking -->
+<div class="modal fade" id="modalTracking" tabindex="-1" aria-labelledby="modalTrackingLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="ri-map-pin-time-line me-2"></i> 
+                    <div>
+                        Perjalanan Paket
+                        <div class="fs-12 text-muted fw-normal">Nomor Resi: <?= $transaction['tracking_number'] ?></div>
+                    </div>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="timeline container">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="timeline-container" id="modalTrackingTimeline">
+                                <!-- Timeline items akan dimasukkan disini -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="ri-close-line me-1"></i> Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <?= $this->endSection() ?>

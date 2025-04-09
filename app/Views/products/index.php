@@ -211,6 +211,15 @@ $(document).ready(function() {
         }
     });
 });
+
+function getStatusColor(status) {
+  return {
+    Understock: 'danger',
+    Optimal: 'success',
+    Overstock: 'warning'
+  }[status] ?? 'secondary';
+}
+
 </script>
 
 <style>

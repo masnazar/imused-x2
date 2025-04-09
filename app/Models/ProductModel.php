@@ -14,6 +14,7 @@ class ProductModel extends Model
         'sku',
         'hpp',
         'stock',
+        'lead_time_days',
         'total_nilai_stok',
         'no_bpom',
         'no_halal',

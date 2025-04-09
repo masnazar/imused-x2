@@ -81,7 +81,9 @@ class Filters extends BaseFilters
             'marketplace-transactions/get-statistics/*',
             'marketplace-transactions/get-data/*',
             'api/*',
-            'purchase-orders/getStatistics'
+            'purchase-orders/getStatistics',
+            'forecast',
+            'forecast/predict-single'
         ]],
     ],
         'after' => [

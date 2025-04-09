@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\PurchaseOrderRepository;
 use Exception;
 use App\Models\StockTransactionModel;
+use App\Repositories\ProductRepository;
 
 /**
  * Service untuk mengelola Purchase Order
@@ -13,6 +14,7 @@ class PurchaseOrderService
 {
     protected $repo;
     protected $inventoryService;
+    protected $productRepo;
 
     /**
      * Konstruktor
@@ -25,6 +27,7 @@ class PurchaseOrderService
         $this->inventoryService = new \App\Services\InventoryService(
             new \App\Repositories\InventoryRepository()
         );
+        $this->productRepo = new ProductRepository();
     }
 
     /**
@@ -296,6 +299,8 @@ private function buildPreviousFilters(array $filters): array
                     $receivedQty,
                     'Purchase Order' // transaction_source
                 );
+
+                $this->productRepo->addStock($product['product_id'], $receivedQty);
             }
 
             $this->repo->updatePoStatus($data['purchase_order_id']);

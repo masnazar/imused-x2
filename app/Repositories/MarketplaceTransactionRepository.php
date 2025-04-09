@@ -64,9 +64,11 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
         ->select('
             transactions.*, 
             brands.brand_name, 
-            brands.primary_color
+            brands.primary_color,
+            couriers.courier_code AS courier_code
         ')
         ->join('brands', 'brands.id = transactions.brand_id', 'left')
+        ->join('couriers', 'couriers.id = transactions.courier_id', 'left')
         ->where('transactions.platform', $platform)
         ->orderBy('transactions.date', 'desc');
 }
@@ -76,27 +78,47 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
      * Hitung total statistik berdasarkan filter
      */
     public function getSummaryStats(array $filters, string $platform): array
-    {
-        $builder = $this->db->table('marketplace_transactions')
-            ->select("
-                COUNT(id) as total_sales,
-                SUM(selling_price) as total_omzet,
-                SUM(hpp + discount + admin_fee) as total_expenses,
-                SUM(selling_price - (hpp + discount + admin_fee)) as gross_profit
-            ")
-            ->where('platform', $platform);
+{
+    helper('periode');
 
-        if (!empty($filters['brand_id'])) {
-            $builder->where('brand_id', $filters['brand_id']);
-        }
+    $builder = $this->getDB()->table('marketplace_transactions')
+        ->select([
+            'COUNT(id) AS total_sales',
+            'SUM(selling_price) AS total_omzet',
+            'SUM(hpp + discount + admin_fee) AS total_expenses',
+            'SUM(gross_profit) AS gross_profit'
+        ])
+        ->where('platform', $platform)
+        ->where('deleted_at', null);
 
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $builder->where('DATE(date) >=', $filters['start_date']);
-            $builder->where('DATE(date) <=', $filters['end_date']);
-        }
-
-        return $builder->get()->getRowArray();
+    // 🔍 Filter Brand
+    if (!empty($filters['brand_id'])) {
+        $builder->where('brand_id', $filters['brand_id']);
     }
+
+    // 📆 Filter Periode atau Custom Date
+    if (($filters['jenis_filter'] ?? '') === 'periode' && !empty($filters['periode'])) {
+        [$start, $end] = get_date_range_from_periode($filters['periode']);
+
+        if ($start && $end) {
+            $builder->where('date >=', $start)
+                    ->where('date <=', $end);
+        }
+    } elseif (($filters['jenis_filter'] ?? '') === 'custom' && !empty($filters['start_date']) && !empty($filters['end_date'])) {
+        $builder->where('date >=', $filters['start_date'])
+                ->where('date <=', $filters['end_date']);
+    }
+
+    $result = $builder->get()->getRowArray();
+
+    return [
+        'total_sales'    => (int) ($result['total_sales'] ?? 0),
+        'total_omzet'    => (float) ($result['total_omzet'] ?? 0),
+        'total_expenses' => (float) ($result['total_expenses'] ?? 0),
+        'gross_profit'   => (float) ($result['gross_profit'] ?? 0)
+    ];
+}
+
 /**
  * Ambil detail produk berdasarkan ID transaksi
  *
@@ -113,12 +135,26 @@ public function getTransactionProducts(int $transactionId): array
         ->getResultArray();
 }
 
-
-
-
     public function getDB()
 {
     return $this->db;
 }
+
+public function getHistoricalSales(int $productId, string $startDate, string $endDate): array
+{
+    $builder = $this->db->table('marketplace_detail_transaction mtd');
+    $builder->select('DATE(mt.date) as tanggal, SUM(mtd.quantity) as total_qty');
+    $builder->join('marketplace_transactions mt', 'mt.id = mtd.transaction_id');
+    $builder->where('mtd.product_id', $productId);
+    $builder->where('mt.date >=', $startDate);
+    $builder->where('mt.date <=', $endDate);
+    $builder->groupBy('tanggal');
+    $builder->orderBy('tanggal', 'ASC');
+
+    $result = $builder->get()->getResultArray();
+
+    return array_map(fn($row) => (int)$row['total_qty'], $result);
+}
+
 
 }

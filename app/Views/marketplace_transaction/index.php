@@ -23,19 +23,6 @@
 <!-- Filter Periode -->
 <?= $date_filter ?>
 
-<!-- Filter Brand -->
-<div class="row mb-3">
-  <div class="col-md-4">
-    <label for="filter_brand" class="form-label">Brand</label>
-    <select id="filter_brand" class="form-select">
-      <option value="">-- Semua Brand --</option>
-      <?php foreach ($brands as $brand): ?>
-        <option value="<?= $brand['id'] ?>"><?= esc($brand['brand_name']) ?></option>
-      <?php endforeach ?>
-    </select>
-  </div>
-</div>
-
 <!-- Statistik -->
 <div class="row row-cards mb-4">
   <div class="col-md-3">
@@ -84,6 +71,23 @@
   </div>
 </div>
 
+<!-- Tabel -->
+<div class="card custom-card shadow-sm">
+  <div class="card-body table-responsive">
+<!-- Filter Brand End -->
+  <div class="row mb-3">
+  <div class="col-md-4">
+    <label for="filter_brand" class="form-label">Brand</label>
+    <select id="filter_brand" class="form-select">
+      <option value="">-- Semua Brand --</option>
+      <?php foreach ($brands as $brand): ?>
+        <option value="<?= $brand['id'] ?>"><?= esc($brand['brand_name']) ?></option>
+      <?php endforeach ?>
+    </select>
+  </div>
+</div>
+<!-- Filter Brand End -->
+
 <!-- Tombol Import & Template -->
 <div class="btn-list mb-4">
   <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importModal"><i class="ti ti-upload"></i> Import Excel</button>
@@ -93,18 +97,14 @@
 <!-- Modal Import -->
 <div class="modal fade" id="importModal" tabindex="-1">
   <div class="modal-dialog">
-    <form id="formImport" class="modal-content" enctype="multipart/form-data" method="POST">
-      <?= csrf_field() ?>
+  <form id="formImport" class="modal-content" enctype="multipart/form-data">
+    <?= csrf_field() ?>
       <div class="modal-header"><h5 class="modal-title">Import Excel Transaksi</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body"><input type="file" name="file_excel" class="form-control" accept=".xlsx" required></div>
       <div class="modal-footer"><button type="submit" class="btn btn-success">Import</button></div>
     </form>
   </div>
 </div>
-
-<!-- Tabel -->
-<div class="card custom-card shadow-sm">
-  <div class="card-body table-responsive">
     <table id="transactionTable" class="table table-hover table-borderless mb-0">
       <thead class="bg-light">
         <tr>
@@ -133,92 +133,29 @@
 const platform = "<?= $platform ?>";
 const csrfName = '<?= csrf_token() ?>';
 let csrfHash = '<?= csrf_hash() ?>';
+const FILTER_STORAGE_KEY = `mp_filter_${platform}`;
+const formatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' });
 
-const formatter = new Intl.NumberFormat('id-ID', {
-  style: 'currency',
-  currency: 'IDR'
-});
-
-// 🧠 Ambil elemen-elemen filter
+// 🧩 DOM Refs
 const jenisFilter = document.getElementById('jenisFilter');
-const periodeSelect = document.getElementById('periodeSelect');
-const startDate = document.getElementById('startDate');
-const endDate = document.getElementById('endDate');
+const periodeSelect = document.querySelector('select[name="periode"]');
+const startDate = document.querySelector('input[name="start_date"]');
+const endDate = document.querySelector('input[name="end_date"]');
 const filterBrand = document.getElementById('filter_brand');
 
-// 🧩 Fungsi sinkronisasi tanggal dari periode
-function updateTanggalDariPeriode() {
-  const selectedOption = document.querySelector('select[name="periode"] option:checked');
-  if (!selectedOption) return;
+// 🚀 Init saat halaman selesai dimuat
+document.addEventListener('DOMContentLoaded', function () {
+  // 🔁 Load filter dari localStorage
+  loadFilterFromLocalStorage();
 
-  const start = selectedOption.getAttribute('data-start');
-  const end = selectedOption.getAttribute('data-end');
-
-  if (jenisFilter.value === 'periode' && start && end) {
-    startDate.value = start;
-    endDate.value = end;
-  }
-
-  // reset kalau bukan custom atau periode
-  if (jenisFilter.value === 'semua') {
-    startDate.value = '';
-    endDate.value = '';
-  }
-}
-
-console.log('🎯 Filter aktif:', {
-  jenis_filter: jenisFilter.value,
-  periode: periodeSelect.value,
-  start_date: startDate.value,
-  end_date: endDate.value
+  // 🔄 Pasang event listener ke semua filter
+  $('#jenisFilter, select[name="periode"], input[name="start_date"], input[name="end_date"], #filter_brand')
+    .on('change', function () {
+      reloadTableAndStats();
+    });
 });
 
-// 🧼 Reset tanggal kalau pilih Semua
-function handleJenisFilterChange() {
-  if (jenisFilter.value === 'custom') {
-    startDate.value = '';
-    endDate.value = '';
-  } else if (jenisFilter.value === 'periode') {
-    updateTanggalDariPeriode();
-  } else {
-    // Semua periode
-    startDate.value = '';
-    endDate.value = '';
-    periodeSelect.value = '';
-  }
-}
-
-// 📊 Ambil statistik
-function fetchStatistics() {
-  const data = {
-    [csrfName]: csrfHash,
-    brand_id: filterBrand.value,
-    jenis_filter: jenisFilter.value,
-    periode: periodeSelect.value,
-    start_date: startDate.value,
-    end_date: endDate.value
-  };
-
-  $.ajax({
-    url: "<?= base_url('marketplace-transactions/get-statistics/' . $platform) ?>",
-    type: "POST",
-    headers: { [csrfName]: csrfHash },
-    data: data,
-    success: res => {
-      if (res[csrfName]) csrfHash = res[csrfName];
-
-      $('#stat_total_sales').text(res.total_sales || 0);
-      $('#stat_total_omzet').text(formatter.format(res.total_omzet || 0));
-      $('#stat_total_expenses').text(formatter.format(res.total_expenses || 0));
-      $('#stat_gross_profit').text(formatter.format(res.gross_profit || 0));
-    },
-    error: xhr => {
-      console.error('❌ Gagal fetch statistik:', xhr.responseText);
-    }
-  });
-}
-
-// 📦 Inisialisasi DataTables
+// 📦 DataTables Init
 const table = $('#transactionTable').DataTable({
   processing: true,
   serverSide: true,
@@ -226,25 +163,26 @@ const table = $('#transactionTable').DataTable({
     url: "<?= base_url('marketplace-transactions/get-data/' . $platform) ?>",
     type: "POST",
     headers: { [csrfName]: csrfHash },
-    data: d => {
+    data: function (d) {
       d[csrfName] = csrfHash;
-      d.brand_id = filterBrand.value;
-      d.jenis_filter = jenisFilter.value;
-      d.periode = periodeSelect.value;
-      d.start_date = startDate.value;
-      d.end_date = endDate.value;
+      d.jenis_filter = jenisFilter?.value;
+      d.periode = periodeSelect?.value;
+      d.start_date = startDate?.value;
+      d.end_date = endDate?.value;
+      d.brand_id = filterBrand?.value;
     },
-    dataSrc: json => {
+    dataSrc: function (json) {
       if (json[csrfName]) csrfHash = json[csrfName];
       return json.data || [];
     },
-    error: xhr => {
-      console.error('❌ Error loading table:', xhr.responseText);
+    error: function (xhr) {
+      console.error('❌ Error loading DataTables:', xhr.responseText);
     }
   },
   columns: [
     {
       data: 'date',
+      className: 'align-middle',
       render: data => {
         if (!data) return '-';
         const d = new Date(data);
@@ -253,123 +191,187 @@ const table = $('#transactionTable').DataTable({
         return `${hari[d.getDay()]}, ${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
       }
     },
-    { data: 'order_number' },
-    { data: 'tracking_number' },
+    {
+      data: 'order_number',
+      render: (data, type, row) => `<a href="<?= base_url('marketplace-transactions/detail') ?>/${row.platform}/${row.id}" class="fw-medium text-primary text-decoration-underline">${data}</a>`
+    },
+    {
+      data: 'tracking_number',
+      render: (data, type, row) => {
+        if (!data) return '-';
+        return `<a href="javascript:void(0)" onclick="showTrackingModal('${row.courier_code}', '${data}')">
+                  <span class="badge bg-info text-white">${data}</span>
+                </a>`;
+      }
+    },
     {
       data: 'brand_name',
       render: (data, type, row) =>
-        `<span class="badge" style="background-color:${row.primary_color}">${data}</span>`
+        `<span class="badge text-white fw-medium" style="background-color:${row.primary_color ?? '#666'}">${data}</span>`
     },
+    { data: 'products' },
+    { data: 'total_qty', render: d => `${parseInt(d).toLocaleString('id-ID')} pcs`, className: 'text-end' },
+    { data: 'selling_price', render: formatter.format, className: 'text-end' },
+    { data: 'hpp', render: formatter.format, className: 'text-end' },
+    { data: 'discount', render: formatter.format, className: 'text-end' },
+    { data: 'admin_fee', render: formatter.format, className: 'text-end' },
+    { data: 'gross_profit', render: d => `<strong>${formatter.format(d)}</strong>`, className: 'text-end' },
     {
-  data: 'products',
-  className: 'align-middle',
-  render: function(data, type, row, meta) {
-    return data; // langsung return HTML
+  data: 'status',
+  render: function (d) {
+    if (!d) return '<span class="badge bg-secondary">-</span>';
+    
+    const map = {
+      terkirim: 'success',
+      processed: 'primary',
+      returned: 'danger',
+      pending: 'warning',
+      'dalam perjalanan': 'info'
+    };
+
+    const color = map[d.toLowerCase()] ?? 'secondary';
+    return `<span class="badge bg-${color} text-capitalize">${d}</span>`;
   }
-},
-{
-  data: 'total_qty',
-  className: 'text-end',
-  render: function (data) {
-    return `${parseInt(data).toLocaleString('id-ID')} pcs`;
-  }
-},
-    { data: 'selling_price', render: d => formatter.format(d), className: 'text-end' },
-    { data: 'hpp', render: d => formatter.format(d), className: 'text-end' },
-    { data: 'discount', render: d => formatter.format(d), className: 'text-end' },
-    { data: 'admin_fee', render: d => formatter.format(d), className: 'text-end' },
-    {
-      data: 'gross_profit',
-      render: d => `<strong>${formatter.format(d)}</strong>`,
-      className: 'text-end'
-    },
-    {
-      data: 'status',
-      render: d => {
-        const color = {
-          completed: 'success',
-          pending: 'warning',
-          canceled: 'danger'
-        }[d] || 'secondary';
-        return `<span class="badge bg-${color}">${d}</span>`;
-      }
-    }
+}
   ]
 });
 
-// ⏱ Debounced handler untuk semua filter
-function handleFilterChange() {
-  updateTanggalDariPeriode();
+// 🔁 Reload Table + Statistik
+function reloadTableAndStats() {
+  saveFilterToLocalStorage();
   table.ajax.reload();
   fetchStatistics();
 }
 
-// 🚀 Init on DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-  updateTanggalDariPeriode();
-  fetchStatistics();
+// 📊 Fetch Statistik
+function fetchStatistics() {
+  $.post("<?= base_url('marketplace-transactions/get-statistics/' . $platform) ?>", {
+    [csrfName]: csrfHash,
+    jenis_filter: jenisFilter?.value,
+    periode: periodeSelect?.value,
+    start_date: startDate?.value,
+    end_date: endDate?.value,
+    brand_id: filterBrand?.value
+  }, function (res) {
+    if (res[csrfName]) csrfHash = res[csrfName];
 
-  jenisFilter.addEventListener('change', () => {
-    handleJenisFilterChange();
-    handleFilterChange();
+    $('#stat_total_sales').text(res.total_sales || 0);
+    $('#stat_total_omzet').text(formatter.format(res.total_omzet || 0));
+    $('#stat_total_expenses').text(formatter.format(res.total_expenses || 0));
+    $('#stat_gross_profit').text(formatter.format(res.gross_profit || 0));
   });
+}
 
-  periodeSelect.addEventListener('change', handleFilterChange);
-  startDate.addEventListener('change', handleFilterChange);
-  endDate.addEventListener('change', handleFilterChange);
-  filterBrand.addEventListener('change', handleFilterChange);
-});
+// 💾 Simpan ke localStorage
+function saveFilterToLocalStorage() {
+  const filterData = {
+    jenis_filter: jenisFilter?.value,
+    periode: periodeSelect?.value,
+    start_date: startDate?.value,
+    end_date: endDate?.value,
+    brand_id: filterBrand?.value,
+    timestamp: new Date().getTime()
+  };
+  localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterData));
+}
+
+// 📥 Load dari localStorage
+function loadFilterFromLocalStorage() {
+  const saved = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY));
+  if (!saved) return;
+
+  const age = new Date().getTime() - saved.timestamp;
+  const oneYear = 365 * 24 * 60 * 60 * 1000;
+
+  if (age > oneYear) {
+    localStorage.removeItem(FILTER_STORAGE_KEY); // expired
+    return;
+  }
+
+  if (saved.jenis_filter) jenisFilter.value = saved.jenis_filter;
+  if (saved.periode && saved.jenis_filter === 'periode') periodeSelect.value = saved.periode;
+  if (saved.start_date && saved.end_date && saved.jenis_filter === 'custom') {
+    startDate.value = saved.start_date;
+    endDate.value = saved.end_date;
+  }
+  if (saved.brand_id) filterBrand.value = saved.brand_id;
+
+  // ✅ Trigger reload otomatis
+  reloadTableAndStats();
+}
+
+function showTrackingModal(courier, tracking) {
+  if (!courier || !tracking) return;
+
+  $('#resiNumberPlaceholder').text(tracking); // ⬅️ Ini juga biar placeholder update
+  $('#modalTracking .modal-body').html(`
+    <div class="text-muted"><i class="ri-loader-4-line spin me-2"></i> Mengambil data tracking...</div>
+  `);
+  $('#modalTracking').modal('show');
+
+  $.post("<?= base_url('marketplace-transactions/track-resi') ?>", {
+    courier: courier,
+    awb: tracking,
+    <?= csrf_token() ?>: csrfHash
+  }, function (res) {
+    if (res[csrfName]) csrfHash = res[csrfName];
+
+    if (res.status === 'success') {
+      const summary = res.data.summary;
+      const history = res.data.history ?? [];
+
+      let timeline = history.map(item => `
+        <li class="mb-2">
+          <strong>${item.date}</strong><br>
+          ${item.desc}
+        </li>
+      `).join('');
+
+      $('#modalTracking .modal-body').html(`
+        <h5>Status: ${summary.status}</h5>
+        <p>
+          <strong>Kurir:</strong> ${summary.courier}<br>
+          <strong>Resi:</strong> ${summary.awb}
+        </p>
+        <hr>
+        <ul class="ps-3">${timeline}</ul>
+      `);
+    } else {
+      $('#modalTracking .modal-body').html(`<div class="text-danger">❌ ${res.message || 'Resi tidak ditemukan.'}</div>`);
+    }
+  }).fail(function () {
+    $('#modalTracking .modal-body').html(`<div class="text-danger">❌ Gagal mengambil data tracking.</div>`);
+  });
+}
 
 $('#formImport').on('submit', function (e) {
-  e.preventDefault(); // ⛔ Biar ga redirect form
+  e.preventDefault();
 
   const formData = new FormData(this);
-  formData.append(csrfName, csrfHash);
+  const url = "<?= base_url('marketplace-transactions/import/' . $platform) ?>";
 
   $.ajax({
-    url: "<?= base_url('marketplace-transactions/import/' . $platform) ?>",
-    type: 'POST',
+    url,
+    method: 'POST',
     data: formData,
-    processData: false,
     contentType: false,
-    dataType: 'json',
-    beforeSend: () => {
-      Swal.fire({
-        title: 'Mengunggah...',
-        html: 'Mohon tunggu sebentar ya, Laey!',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-    },
-    success: function (res) {
-      if (res[csrfName]) csrfHash = res[csrfName];
-
+    processData: false,
+    success(res) {
       if (res.status === 'success') {
-        Swal.fire({
-          icon: 'success',
-          title: 'Berhasil!',
-          text: res.message
-        }).then(() => {
-          window.location.href = res.redirect;
-        });
+        window.location.href = res.redirect;
       } else {
-        Swal.fire({
-          icon: 'error',
-          title: 'Gagal Import',
-          html: res.message
-        });
+        Swal.fire('Gagal!', res.message || 'Terjadi kesalahan.', 'error');
       }
     },
-    error: function (xhr) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Gagal Import',
-        text: 'Terjadi kesalahan saat mengunggah file.'
-      });
+    error(err) {
+      console.error(err);
+      Swal.fire('Error', 'Gagal memproses file.', 'error');
     }
   });
 });
+
 </script>
+
 <style>
   /* Untuk styling produk format */
 .product-list .badge {
@@ -382,6 +384,49 @@ $('#formImport').on('submit', function (e) {
 .product-list small {
   font-size: 0.8rem;
 }
+
+.spin {
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 </style>
 
+<!-- Modal Timeline Tracking -->
+<div class="modal fade" id="modalTracking" tabindex="-1" aria-labelledby="modalTrackingLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title d-flex align-items-center">
+                    <i class="ri-map-pin-time-line me-2"></i> 
+                    <div>
+                        Perjalanan Paket
+                        <div class="fs-12 text-muted fw-normal">
+                            Nomor Resi: <span id="resiNumberPlaceholder">-</span>
+                        </div>
+                    </div>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="timeline container">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="timeline-container" id="modalTrackingTimeline">
+                                <!-- Timeline items akan dimasukkan disini -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="ri-close-line me-1"></i> Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <?= $this->endSection() ?>
