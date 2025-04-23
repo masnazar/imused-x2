@@ -517,3 +517,46 @@ $routes->group('forecast', ['filter' => 'auth'], static function ($routes) {
      */
     $routes->post('predict-all', 'Forecast::predictAll', ['as' => 'forecast.predictAll']);
 });
+
+// 📦 Routes untuk Transaksi Soscom
+$routes->group('soscom-transactions', ['filter' => 'auth'], static function ($routes) {
+    /**
+     * @route Index & Data
+     */
+    $routes->get('/', 'SoscomTransaction::index');
+    $routes->post('get-data', 'SoscomTransaction::getData');
+    $routes->post('get-statistics', 'SoscomTransaction::getStatistics');
+
+    /**
+     * @route CRUD
+     */
+    $routes->post('store', 'SoscomTransaction::store');
+    $routes->get('(:num)', 'SoscomTransaction::detail/$1');
+    $routes->delete('(:num)', 'SoscomTransaction::delete/$1');
+
+    /**
+     * @route Import Excel
+     */
+    $routes->post('import-excel', 'SoscomTransaction::importExcel');
+    $routes->get('confirm-import', 'SoscomTransaction::confirmImport');
+    $routes->post('save-import', 'SoscomTransaction::saveImportedData');
+    $routes->get('download-template', 'SoscomTransaction::downloadTemplate');
+});
+
+$routes->group('customers', ['filter' => 'auth'], function($routes) {
+    /**
+     * @api {get} Halaman utama customer
+     */
+    $routes->get('/', 'Customer::index');
+  
+    /**
+     * @api {post} Ambil data customer
+     */
+    $routes->post('data', 'Customer::getData');
+  
+    /**
+     * @api {get} Detail customer
+     */
+    $routes->get('detail/(:num)', 'Customer::detail/$1');
+  });
+  
