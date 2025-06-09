@@ -83,7 +83,8 @@ class Filters extends BaseFilters
             'api/*',
             'purchase-orders/getStatistics',
             'forecast',
-            'forecast/predict-single'
+            'forecast/predict-single',
+            'soscom-transactions/get-data'
         ]],
     ],
         'after' => [

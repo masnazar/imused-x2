@@ -518,30 +518,47 @@ $routes->group('forecast', ['filter' => 'auth'], static function ($routes) {
     $routes->post('predict-all', 'Forecast::predictAll', ['as' => 'forecast.predictAll']);
 });
 
-// 📦 Routes untuk Transaksi Soscom
+/**
+ * 🔁 Routes untuk Soscom Transactions
+ */
 $routes->group('soscom-transactions', ['filter' => 'auth'], static function ($routes) {
     /**
-     * @route Index & Data
+     * 📜 @var GET Halaman index
      */
     $routes->get('/', 'SoscomTransaction::index');
+
+    /**
+     * 📦 @var POST Server-side datatables
+     */
     $routes->post('get-data', 'SoscomTransaction::getData');
-    $routes->post('get-statistics', 'SoscomTransaction::getStatistics');
 
     /**
-     * @route CRUD
+     * 📥 @var POST Import Excel
      */
-    $routes->post('store', 'SoscomTransaction::store');
-    $routes->get('(:num)', 'SoscomTransaction::detail/$1');
-    $routes->delete('(:num)', 'SoscomTransaction::delete/$1');
+    $routes->post('import', 'SoscomTransaction::importExcel');
 
     /**
-     * @route Import Excel
+     * 📄 @var GET Konfirmasi hasil import
      */
-    $routes->post('import-excel', 'SoscomTransaction::importExcel');
     $routes->get('confirm-import', 'SoscomTransaction::confirmImport');
+
+    /**
+     * 💾 @var POST Simpan hasil import
+     */
     $routes->post('save-import', 'SoscomTransaction::saveImportedData');
-    $routes->get('download-template', 'SoscomTransaction::downloadTemplate');
+
+    /**
+     * 🚚 @var POST Tracking Resi
+     */
+    $routes->post('track-resi', 'SoscomTransaction::trackResi');
+
+    /**
+     * 🧾 @var GET Download Template Excel
+     */
+    $routes->get('download-template', 'SoscomTransaction::downloadTemplate'); // ✅ ini yang error 404
 });
+
+
 
 $routes->group('customers', ['filter' => 'auth'], function($routes) {
     /**

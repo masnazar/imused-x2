@@ -6,7 +6,7 @@ use CodeIgniter\Database\BaseBuilder;
 use Config\Database;
 
 /**
- * Repository untuk query kompleks soscom_transactions
+ * Repository untuk modul Soscom Transactions
  */
 class SoscomTransactionRepository
 {
@@ -17,113 +17,126 @@ class SoscomTransactionRepository
         $this->db = Database::connect();
     }
 
-    public function getDB()
-    {
-        return $this->db;
-    }
-
     /**
-     * 🔍 Ambil transaksi untuk keperluan DataTables
+     * 📦 Query builder untuk DataTables Server-side
      */
-    public function getBaseQuery(): BaseBuilder
+    public function getPaginatedTransactions(array $params): array
     {
-        return $this->db->table('soscom_transactions AS transactions')
+        $builder = $this->db->table('soscom_transactions AS transactions')
             ->select('
-                transactions.*, 
-                customers.name AS customer_name,
-                customers.phone_number,
-                customers.city,
-                customers.province,
+                transactions.*,
                 brands.brand_name,
-                warehouses.code AS warehouse_code
+                couriers.courier_code,
+                soscom_teams.team_name
             ')
-            ->join('customers', 'customers.id = transactions.customer_id', 'left')
             ->join('brands', 'brands.id = transactions.brand_id', 'left')
-            ->join('warehouses', 'warehouses.id = transactions.warehouse_id', 'left')
-            ->where('transactions.deleted_at', null)
-            ->orderBy('transactions.date', 'desc');
+            ->join('couriers', 'couriers.id = transactions.courier_id', 'left')
+            ->join('soscom_teams', 'soscom_teams.id = transactions.soscom_team_id', 'left');
+
+        // 🔍 Filtering by brand
+        if (!empty($params['brand_id'])) {
+            $builder->where('transactions.brand_id', $params['brand_id']);
+        }
+
+        // 🔍 Filtering by date
+        if (!empty($params['start_date']) && !empty($params['end_date'])) {
+            $builder->where('transactions.date >=', $params['start_date']);
+            $builder->where('transactions.date <=', $params['end_date']);
+        }
+
+        // 🔎 Search (multi-field)
+        if (!empty($filters['search']['value'])) {
+            $search = $filters['search']['value'];
+        
+            $builder->groupStart()
+                ->like('st.customer_name', $search)
+                ->orLike('st.customer_whatsapp', $search)
+                ->orLike('st.city', $search)
+                ->orLike('st.province', $search)
+                ->groupEnd();
+        }
+        
+
+        // 🚀 Clone builder sebelum limit untuk get total filtered
+        $builderFiltered = clone $builder;
+        $recordsFiltered = $builderFiltered->countAllResults(false);
+
+        // 🔁 Pagination
+        $builder->limit((int)$params['length'], (int)$params['start']);
+        $data = $builder->get()->getResultArray();
+
+        return [
+            'draw'            => intval($params['draw']),
+            'recordsTotal'    => $this->countAllTransactions(),
+            'recordsFiltered' => $recordsFiltered,
+            'data'            => $data
+        ];
     }
 
     /**
-     * 📦 Ambil produk dalam transaksi
+     * 📊 Hitung semua transaksi
      */
-    public function getTransactionProducts(int $transactionId): array
+    private function countAllTransactions(): int
     {
-        return $this->db->table('soscom_detail_transactions AS dt')
-            ->select('p.nama_produk, p.sku, dt.quantity, dt.hpp, dt.unit_selling_price')
-            ->join('products AS p', 'p.id = dt.product_id')
-            ->where('dt.transaction_id', $transactionId)
-            ->get()
-            ->getResultArray();
+        return (int)$this->db->table('soscom_transactions')->countAllResults();
     }
 
     /**
-     * 📊 Statistik Transaksi Soscom
+     * 📈 Statistik Laporan
      */
-    public function getSummaryStats(array $filters): array
+    public function getSummaryStats(array $filters = []): array
     {
         $builder = $this->db->table('soscom_transactions')
             ->select([
                 'COUNT(id) AS total_sales',
-                'SUM(selling_price) AS total_omzet',
-                'SUM(hpp + discount + admin_fee + cod_fee) AS total_expenses',
-                'SUM(gross_profit) AS gross_profit'
-            ])
-            ->where('deleted_at', null);
+                'SUM(total_omzet) AS total_omzet',
+                'SUM(hpp) AS total_hpp',
+                'SUM(estimated_profit) AS total_profit'
+            ]);
+
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $builder->where('date >=', $filters['start_date']);
+            $builder->where('date <=', $filters['end_date']);
+        }
 
         if (!empty($filters['brand_id'])) {
             $builder->where('brand_id', $filters['brand_id']);
         }
 
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $builder->where('date >=', $filters['start_date'])
-                    ->where('date <=', $filters['end_date']);
-        }
+        $result = $builder->get()->getRowArray();
 
-        return $builder->get()->getRowArray() ?? [];
+        return [
+            'total_sales'  => (int)($result['total_sales'] ?? 0),
+            'total_omzet'  => (float)($result['total_omzet'] ?? 0),
+            'total_hpp'    => (float)($result['total_hpp'] ?? 0),
+            'total_profit' => (float)($result['total_profit'] ?? 0),
+        ];
     }
 
     /**
-     * 🔁 Cek apakah customer sudah ada berdasarkan nomor WA
+     * 📦 Produk per transaksi
      */
-    public function findCustomerByPhone(string $phone): ?array
+    public function getTransactionProducts(int $transactionId): array
     {
-        return $this->db->table('customers')
-            ->where('phone_number', $phone)
-            ->get()
-            ->getRowArray();
-    }
-
-    public function getPaginated(array $filters): array
-    {
-        $builder = $this->getBaseQuery();
-
-        if (!empty($filters['search'])) {
-            $builder->groupStart()
-                ->like('order_number', $filters['search'])
-                ->orLike('customers.name', $filters['search'])
-                ->groupEnd();
-        }
-
-        // 📅 Filter Tanggal
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $builder->where("st.date >=", $filters['start_date']);
-            $builder->where("st.date <=", $filters['end_date']);
-        }
-
-        $builderFiltered = clone $builder;
-        $recordsFiltered = $builderFiltered->countAllResults();
-
-        $data = $builder
-            ->limit($filters['length'], $filters['start'])
+        return $this->db->table('soscom_transaction_details AS details')
+            ->select('
+                products.product_name,
+                products.sku,
+                details.quantity,
+                details.hpp,
+                details.unit_selling_price
+            ')
+            ->join('products', 'products.id = details.product_id', 'left')
+            ->where('details.transaction_id', $transactionId)
             ->get()
             ->getResultArray();
+    }
 
-        return [
-            'draw' => (int) $filters['draw'],
-            'recordsTotal' => $recordsFiltered,
-            'recordsFiltered' => $recordsFiltered,
-            'data' => $data
-        ];
+    /**
+     * 🔍 Ambil database instance
+     */
+    public function getDB()
+    {
+        return $this->db;
     }
 }
