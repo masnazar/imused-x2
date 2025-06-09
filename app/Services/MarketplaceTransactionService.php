@@ -201,6 +201,8 @@ class MarketplaceTransactionService
         }, $products);
 
         $row['products'] = $this->formatProducts(implode('||', $productStrings));
+        
+        $row['processed_by'] = $row['processed_by_name'] ?? '-';
     }
 
     return [

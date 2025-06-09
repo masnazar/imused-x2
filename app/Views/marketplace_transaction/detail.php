@@ -92,29 +92,55 @@
                                 <th>Produk</th>
                                 <th class="text-end">Qty</th>
                                 <th class="text-end">Harga Satuan</th>
-                                <th class="text-end">Total</th>
+                                <th class="text-end">Total HPP</th>
+                                <th class="text-end">Diskon</th>
+                                <th class="text-end">Admin Fee</th>
                             </tr>
                         </thead>
+
                         <tbody>
-                        <?php foreach ($products as $i => $item): ?>
-                            <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td>
-                                    <div>
+                            <?php
+                            $totalHpp = 0;
+                            $totalDiskon = 0;
+                            $totalAdminFee = 0;
+
+                            foreach ($products as $i => $item):
+                                $rowHpp = $item['quantity'] * $item['hpp'];
+                                $rowProfit = $item['unit_selling_price'] * $item['quantity'] - $rowHpp - $item['discount'] - $item['admin_fee'];
+
+                                $totalHpp += $rowHpp;
+                                $totalDiskon += $item['discount'];
+                                $totalAdminFee += $item['admin_fee'];
+                            ?>
+                                <tr>
+                                    <td><?= $i + 1 ?></td>
+                                    <td>
                                         <div class="fw-medium"><?= esc($item['nama_produk']) ?></div>
                                         <small class="text-muted">SKU: <?= esc($item['sku']) ?></small>
-                                    </div>
-                                </td>
-                                <td class="text-end"><?= number_format($item['quantity'], 0, ',', '.') ?> pcs</td>
-                                <td class="text-end">Rp <?= number_format($item['unit_selling_price'], 0, ',', '.') ?></td>
-                                <td class="text-end fw-medium">Rp <?= number_format($item['quantity'] * $item['unit_selling_price'], 0, ',', '.') ?></td>
-                            </tr>
-                        <?php endforeach ?>
+                                    </td>
+                                    <td class="text-end"><?= number_format($item['quantity'], 0, ',', '.') ?> pcs</td>
+                                    <td class="text-end">Rp <?= number_format($item['unit_selling_price'], 0, ',', '.') ?></td>
+                                    <td class="text-end text-danger">Rp <?= number_format($rowHpp, 0, ',', '.') ?></td>
+                                    <td class="text-end">Rp <?= number_format($item['discount'], 0, ',', '.') ?></td>
+                                    <td class="text-end">Rp <?= number_format($item['admin_fee'], 0, ',', '.') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
+
                         <tfoot>
+                            <tr class="table-light">
+                                <td colspan="4" class="text-end fw-medium">Estimasi Profit</td>
+                                <td colspan="3" class="text-end fw-bold text-success">
+                                    Rp <?= number_format(
+                                        $transaction['selling_price'] - $totalHpp - $totalDiskon - $totalAdminFee,
+                                        0, ',', '.'
+                                    ) ?>
+                                </td>
+                            </tr>
                             <tr>
-                                <td colspan="4" class="text-end fw-medium">Total</td>
-                                <td class="text-end text-success fw-bold">Rp <?= number_format($transaction['selling_price'], 0, ',', '.') ?></td>
+                                <td colspan="8" class="text-end text-muted fst-italic">
+                                    <small>Estimasi Profit = Harga Jual - HPP - Diskon - Admin Fee</small>
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
@@ -400,79 +426,23 @@ function fetchTrackingStatus(courier, awb) {
             <?= csrf_token() ?>: "<?= csrf_hash() ?>"
         },
         success: function(res) {
-            Swal.close();
-            const container = $("#modalTrackingTimeline");
-            container.empty();
+    Swal.close();
 
-            if (res.status === "success" && res.data.history?.length > 0) {
-                const grouped = res.data.history.reverse().reduce((acc, log) => {
-                    const dateKey = log.date.split(' ')[0];
-                    if (!acc[dateKey]) acc[dateKey] = [];
-                    acc[dateKey].push(log);
-                    return acc;
-                }, {});
+    if (res.status === "success") {
+        Swal.fire({
+            icon: 'success',
+            title: 'Status Diperbarui',
+            text: 'Status resi berhasil diperbarui!',
+            timer: 1200,
+            showConfirmButton: false
+        }).then(() => {
+            location.reload(); // ✅ RELOAD halaman
+        });
+    } else {
+        Swal.fire("Gagal", "Gagal memperbarui status resi.", "error");
+    }
+}
 
-                Object.entries(grouped).forEach(([dateKey, logs]) => {
-                    const { fullDate } = formatIndonesianDate(dateKey);
-                    
-                    // Tambah tanggal header
-                    container.append(`
-                        <div class="timeline-end mb-4 mt-3">
-                            <span class="p-1 fs-12 bg-primary text-white border border-primary border-opacity-25 rounded-1">
-                                ${fullDate}
-                            </span>
-                        </div>
-                    `);
-
-                    // Tambah item log
-                    logs.forEach(log => {
-                        const { day, time } = formatIndonesianDate(log.date);
-                        container.append(`
-                            <div class="timeline-continue">
-                                <div class="timeline-right">
-                                    <div class="timeline-content">
-                                        <p class="timeline-date text-muted mb-2 fs-12">
-                                            ${time} • ${day}
-                                        </p>
-                                        <div class="timeline-box border border-primary border-opacity-10 bg-white p-3 rounded-2 shadow-sm">
-                                            <div class="d-flex align-items-start gap-2">
-                                                <i class="ri-map-pin-2-line fs-16 text-primary mt-1"></i>
-                                                <span class="text-muted fs-14">${log.desc}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        `);
-                    });
-                });
-                
-                // Tambah footer timeline
-                container.append(`
-                    <div class="timeline-end mt-4">
-                        <span class="p-1 fs-12 bg-success text-white border border-success border-opacity-25 rounded-1">
-                            Status Terakhir: ${res.data.summary?.status ?? '-'}
-                        </span>
-                    </div>
-                `);
-
-            } else {
-                container.html(`
-                    <div class="text-center py-5">
-                        <div class="avatar avatar-xl bg-light text-muted rounded-2 mb-3">
-                            <i class="ri-inbox-line fs-24"></i>
-                        </div>
-                        <p class="text-muted mb-0">Belum ada data tracking tersedia</p>
-                    </div>
-                `);
-            }
-
-            $('#modalTracking').modal('show');
-        },
-        error: function(xhr) {
-            Swal.fire("Gagal", "Gagal memuat data tracking", "error");
-            console.error("Error:", xhr.responseText);
-        }
     });
 }
 </script>

@@ -205,4 +205,21 @@ class UserRepository
         ->getResultArray();
 }
 
+/**
+ * Ambil user lengkap beserta slug role berdasarkan email.
+ *
+ * @param string $email
+ * @return array|null
+ */
+public function getUserWithRoleSlugByEmail(string $email): ?array
+{
+    return $this->db->table('users')
+        ->select('users.*, roles.role_name, roles.slug as role_slug')
+        ->join('roles', 'roles.id = users.role_id', 'left')
+        ->where('users.email', $email)
+        ->get()
+        ->getRowArray();
+}
+
+
 }

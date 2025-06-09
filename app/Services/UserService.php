@@ -154,7 +154,7 @@ class UserService
     {
         log_message('info', '🟢 Proses login untuk: ' . $email);
 
-        $user = $this->userRepo->findByEmail($email);
+        $user = $this->userRepo->getUserWithRoleSlugByEmail($email);
 
         if (!$user || !password_verify($password, $user['password'])) {
             log_message('error', '🔴 Login gagal: Email atau password salah');
@@ -180,6 +180,7 @@ class UserService
             'user_email' => $user['email'],
             'role_id'    => $user['role_id'],
             'role_name'  => $user['role_name'],
+            'role_slug'  => $user['role_slug'],
             'is_active'  => $user['is_active'],
             'profile_image' => $user['profile_image'] ?? 'default.jpg',
             'user_permissions' => $userPermissionNames,
@@ -375,5 +376,12 @@ class UserService
     $permissions = $repo->getUserPermissions($userId);
     return array_column($permissions, 'permission_name');
 }
+
+public function getRoleIdBySlug(string $slug): ?int
+{
+    $role = model('RoleModel')->where('slug', $slug)->first();
+    return $role['id'] ?? null;
+}
+
 
 }

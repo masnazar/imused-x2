@@ -15,6 +15,7 @@ use App\Models\ProductModel;
 use App\Models\CourierModel;
 use App\Models\SoscomTransactionModel;
 use App\Models\SoscomTransactionDetailModel;
+use App\Models\WarehouseModel;
 
 /**
  * Controller untuk modul Soscom Transactions
@@ -22,10 +23,13 @@ use App\Models\SoscomTransactionDetailModel;
 class SoscomTransaction extends BaseController
 {
     protected SoscomTransactionService $service;
+    protected \App\Models\WarehouseModel $warehouseModel;
+
 
     public function __construct()
     {
         $this->service = new \App\Services\SoscomTransactionService();
+        $this->warehouseModel = new \App\Models\WarehouseModel(); // ⬅️ Tambahin ini
     }
 
 /**
@@ -47,6 +51,7 @@ public function index()
         try {
             $params = $this->request->getPost();
             $data = $this->service->getPaginatedTransactions($params);
+            log_message('info', json_encode($data));
             return $this->response->setJSON($data);
         } catch (Throwable $e) {
             log_message('error', '[SoscomTransaction::getData] ' . $e->getMessage());
@@ -103,87 +108,152 @@ public function index()
 
         $headerMap = [
             'A' => 'date',
-            'B' => 'whatsapp_number',
+            'B' => 'phone_number',
             'C' => 'customer_name',
             'D' => 'city',
             'E' => 'province',
-            'F' => 'brand_code', // ⬅️ GANTI brand_id jadi brand_code
+            'F' => 'brand_code',
             'G' => 'sku',
             'H' => 'quantity',
             'I' => 'selling_price',
             'J' => 'payment_method',
-            'K' => 'cod_fee',
-            'L' => 'shipping_cost',
+            'K' => 'shipping_cost',
+            'L' => 'cod_fee',
             'M' => 'courier_code',
-            'N' => 'tracking_number'
+            'N' => 'tracking_number',
+            'O' => 'warehouse_code',
+            'P' => 'team_code',
+            'Q' => 'channel',
         ];
+
+        
+
 
         $importedData = [];
         $errors = [];
 
+        $brandModel = new BrandModel();
+        $productModel = new ProductModel();
+        $courierModel = new CourierModel();
+        $warehouseModel = new \App\Models\WarehouseModel();
+
         foreach (array_slice($rows, 1) as $i => $row) {
-            $rowData = [];
             $rowNumber = $i + 2;
+            $rowData = [];
 
             foreach ($headerMap as $col => $key) {
                 $rowData[$key] = trim((string)($row[$col] ?? ''));
             }
 
-            // 🛠 Format WhatsApp Number
-            $rowData['whatsapp_number'] = str_replace(['+', '-', ' '], '', $rowData['whatsapp_number']);
-            if (str_starts_with($rowData['whatsapp_number'], '08')) {
-                $errors[] = "Baris $rowNumber: Format No. WhatsApp harus diawali 62, bukan 08.";
-                continue;
-            }
-            if (!preg_match('/^62\d{9,12}$/', $rowData['whatsapp_number'])) {
-                $errors[] = "Baris $rowNumber: Format No. WhatsApp tidak valid.";
+            $allowedChannels = ['soscom', 'crm'];
+$rowData['channel'] = strtolower(trim($rowData['channel']));
+$rowData['channel'] = in_array($rowData['channel'], $allowedChannels) ? $rowData['channel'] : 'soscom';
+
+
+            // Normalisasi WhatsApp Number
+            $rowData['phone_number'] = preg_replace('/[^0-9]/', '', $rowData['phone_number']);
+            if (strpos($rowData['phone_number'], '62') !== 0) {
+                $errors[] = "Baris $rowNumber: Nomor WhatsApp harus diawali 62.";
                 continue;
             }
 
-            // 🎯 Cari Brand ID dari brand_code
-            $brand = model(BrandModel::class)->where('kode_brand', $rowData['brand_code'])->first();
-            if (!$brand) {
-                $errors[] = "Baris $rowNumber: Kode Brand {$rowData['brand_code']} tidak ditemukan.";
+            // Validasi minimal data wajib
+            if (empty($rowData['date']) || empty($rowData['phone_number']) || empty($rowData['sku']) || !is_numeric($rowData['quantity'])) {
+                $errors[] = "Baris $rowNumber: Data wajib kosong.";
                 continue;
             }
-            $rowData['brand_id'] = $brand['id'];
 
-            // 🎯 Cari Product ID dari SKU
-            $product = model(ProductModel::class)->where('sku', $rowData['sku'])->first();
-            if (!$product) {
-                $errors[] = "Baris $rowNumber: SKU {$rowData['sku']} tidak ditemukan.";
-                continue;
-            }
-            $rowData['product_id'] = $product['id'];
-
-            // 🛠 Auto Isi HPP dari Produk
-            $rowData['hpp'] = $product['hpp'] ?? 0;
-
-            // 🎯 Cari Courier ID dari courier_code
-            $courier = model(CourierModel::class)->where('courier_code', $rowData['courier_code'])->first();
-            if (!$courier) {
-                $errors[] = "Baris $rowNumber: Kode Kurir {$rowData['courier_code']} tidak ditemukan.";
-                continue;
-            }
-            $rowData['courier_id'] = $courier['id'];
-
-            // 📅 Konversi tanggal
+            // Konversi Excel Date
             if (is_numeric($rowData['date'])) {
                 $rowData['date'] = ExcelDate::excelToDateTimeObject($rowData['date'])->format('Y-m-d');
             }
 
+            // Cek Brand ID
+            $brand = $brandModel->where('kode_brand', $rowData['brand_code'])->first();
+            if (!$brand) {
+                $errors[] = "Baris $rowNumber: Brand Code '{$rowData['brand_code']}' tidak ditemukan.";
+                continue;
+            }
+            $rowData['brand_id'] = $brand['id'];
+
+            // Cek Product ID + HPP
+            $product = $productModel->where('sku', $rowData['sku'])->first();
+            if (!$product) {
+                $errors[] = "Baris $rowNumber: SKU '{$rowData['sku']}' tidak ditemukan.";
+                continue;
+            }
+            $rowData['product_id'] = $product['id'];
+            $rowData['hpp'] = $product['hpp'];
+
+            // Cek Courier ID
+            $courier = $courierModel->where('courier_code', $rowData['courier_code'])->first();
+            if (!$courier) {
+                $errors[] = "Baris $rowNumber: Courier Code '{$rowData['courier_code']}' tidak ditemukan.";
+                continue;
+            }
+            $rowData['courier_id'] = $courier['id'];
+            $rowData['channel'] = strtolower(trim($rowData['channel'])) ?: 'soscom';
+
+            try {
+                // Log 1: Nilai warehouse_code dari Excel
+                $warehouseCode = $rowData['warehouse_code'];
+                log_message('debug', "🔍 Baris $rowNumber: Mencari warehouse_code = '{$warehouseCode}'");
+
+                // Log 2: Dapatkan query yang di-generate oleh CI
+                $builder = $this->warehouseModel->builder();
+                $builder->where('code', $warehouseCode);
+                $query = $builder->getCompiledSelect();
+                log_message('debug', "🔧 Query: $query");
+
+                // Log 3: Eksekusi query manual untuk debugging
+                $manualQuery = "SELECT * FROM `warehouses` WHERE `code` = '{$warehouseCode}'";
+                $manualResult = $this->warehouseModel->db->query($manualQuery)->getRowArray();
+                log_message('debug', "🔎 Hasil query manual: " . json_encode($manualResult));
+
+                // Log 4: Eksekusi query via model
+                $warehouse = $this->warehouseModel->where('code', $warehouseCode)->first();
+
+                if (!$warehouse) {
+                    log_message('error', "❌ Warehouse code '{$warehouseCode}' TIDAK DITEMUKAN di database");
+                    $errors[] = "Baris $rowNumber: Warehouse Code '{$warehouseCode}' tidak ditemukan.";
+                    continue;
+                } else {
+                    log_message('debug', "✅ Warehouse DITEMUKAN: " . json_encode($warehouse));
+                }
+
+                $rowData['warehouse_id'] = $warehouse['id'];
+
+                $teamModel = new \App\Models\SoscomTeamModel(); // pastikan model ada
+
+                $team = $teamModel->where('team_code', $rowData['team_code'])->first();
+                if (!$team) {
+                    $errors[] = "Baris $rowNumber: Team Code '{$rowData['team_code']}' tidak ditemukan.";
+                    continue;
+                }
+                $rowData['soscom_team_id'] = $team['id'];
+
+
+            } catch (\Throwable $e) {
+                log_message('error', "💥 ERROR: " . $e->getMessage());
+                log_message('error', "📜 TRACE: " . $e->getTraceAsString());
+                $errors[] = "Baris $rowNumber: Gagal validasi warehouse. Silakan cek log.";
+                continue;
+            }
+
+            // Hitung otomatis
+            $rowData['total_payment'] = (float)$rowData['selling_price'] + (float)$rowData['shipping_cost'] + (float)$rowData['cod_fee'];
+            $rowData['estimated_profit'] = (float)$rowData['selling_price'] - ((float)$rowData['hpp'] * (int)$rowData['quantity']);
             $rowData['created_at'] = $rowData['updated_at'] = date('Y-m-d H:i:s');
             $rowData['processed_by'] = user_id();
-            $rowData['total_payment'] = (float)$rowData['selling_price'] + (float)$rowData['cod_fee'] + (float)$rowData['shipping_cost'];
-            $rowData['estimated_profit'] = (float)$rowData['selling_price'] - (float)$rowData['hpp'];
 
             $importedData[] = $rowData;
         }
 
+        // Jika ada error, batalin semua
         if (!empty($errors)) {
             return $this->response->setJSON([
                 'status' => 'error',
-                'message' => implode('<br>', $errors)
+                'message' => implode('<br>', $errors),
             ]);
         }
 
@@ -197,9 +267,14 @@ public function index()
         ]);
     } catch (Throwable $e) {
         log_message('error', '[SoscomTransaction::importExcel] ' . $e->getMessage());
-        return $this->failServerError('Gagal memproses file import.');
+        return $this->response->setStatusCode(500)->setJSON([
+            'status' => 'error',
+            'message' => 'Gagal memproses file import.',
+            csrf_token() => csrf_hash()
+        ]);
     }
 }
+
 
     /**
      * 📋 Konfirmasi Import
@@ -262,22 +337,60 @@ public function downloadTemplate(): ResponseInterface
     $sheet = $spreadsheet->getActiveSheet();
     $sheet->setTitle('Template Import Soscom');
 
-    // Kolom header
+    // Header kolom
     $headers = [
-        'Tanggal', 'No WhatsApp', 'Nama Customer', 'Kota', 'Provinsi',
-        'Brand ID', 'SKU', 'Qty', 'Harga Jual', 'HPP', 'Payment Method',
-        'COD Fee', 'Shipping Cost', 'Courier Code', 'Tracking Number'
+        'Tanggal (yyyy-mm-dd)',
+        'No WhatsApp (62xxxx)',
+        'Nama Customer',
+        'Kota',
+        'Provinsi',
+        'Kode Brand',
+        'SKU Produk',
+        'Quantity',
+        'Harga Jual per Produk',
+        'Metode Bayar',
+        'Ongkir',
+        'COD Fee',
+        'Kode Courier',
+        'No Resi',
+        'Kode Warehouse',
+        'Kode Team',
+        'Channel Sales (soscom/crm)',
     ];
 
-    $sample = [
-        date('Y-m-d'), '081234567890', 'Budi', 'Jakarta', 'DKI Jakarta',
-        1, 'SKU-001', 2, 50000, 30000, 'COD',
-        5000, 10000, 'jne', 'JNE123456'
+    // Contoh data sample
+    $sampleData = [
+        date('Y-m-d'),
+        '6281234567890',
+        'Budi',
+        'Jakarta',
+        'DKI Jakarta',
+        'PHR',
+        'PK',
+        2,
+        150000,
+        'COD',
+        10000,
+        5000,
+        'JNT',
+        'JNT123456789',
+        'KODE GUDANG',
+        'TEAM A',
+        'crm',
     ];
 
-    $sheet->fromArray($headers, null, 'A1');
-    $sheet->fromArray($sample, null, 'A2');
+    // Isi header
+    $sheet->fromArray([$headers], null, 'A1');
 
+    // Isi sample
+    $sheet->fromArray([$sampleData], null, 'A2');
+
+    // Auto-size semua kolom
+    foreach (range('A', $sheet->getHighestColumn()) as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+
+    // Siapkan file download
     $filename = 'template_import_soscom_' . date('d-m-Y_His') . '.xlsx';
     $writer = new Xlsx($spreadsheet);
 
@@ -291,6 +404,17 @@ public function downloadTemplate(): ResponseInterface
     $excelOutput = ob_get_clean();
 
     return $response->setBody($excelOutput);
+}
+
+public function getStatistics()
+{
+    try {
+        $data = $this->service->getSummaryStatistics(); // ⬅️ Bikin di service
+        return $this->response->setJSON(array_merge($data, [csrf_token() => csrf_hash()]));
+    } catch (\Throwable $e) {
+        log_message('error', '[SoscomTransaction::getStatistics] ' . $e->getMessage());
+        return $this->failServerError('Gagal memuat statistik.');
+    }
 }
 
 

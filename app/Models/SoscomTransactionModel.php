@@ -34,5 +34,6 @@ class SoscomTransactionModel extends Model
         'shipping_status',
         'soscom_team_id',
         'processed_by',
+        'channel'
     ];
 }

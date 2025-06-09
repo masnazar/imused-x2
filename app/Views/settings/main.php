@@ -1,5 +1,10 @@
 <?= $this->extend('layouts/main'); ?>
 
+<?= $this->section('styles') ?>
+<!-- Includenya di layout/main atau section script -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<?= $this->endSection() ?>
+
 <?= $this->section('content'); ?>
 
 <!-- Start::page-header -->
@@ -21,18 +26,28 @@
         <div class="card custom-card">
             <div class="card-body">
                 <ul class="nav nav-tabs flex-column nav-tabs-header mb-0">
+                    <!-- Sistem -->
                     <li class="nav-item me-0">
                         <a class="nav-link <?= $activeTab === 'system' ? 'active' : '' ?>" 
                            href="<?= base_url('/settings/system') ?>">
                             <i class="ri-settings-5-line me-2"></i> Sistem
                         </a>
                     </li>
+                    <!-- Email -->
                     <li class="nav-item me-0">
                         <a class="nav-link <?= $activeTab === 'email' ? 'active' : '' ?>" 
                            href="<?= base_url('/settings/email') ?>">
                             <i class="ri-mail-line me-2"></i> Email
                         </a>
                     </li>
+                    <!-- Menu -->
+                    <li class="nav-item me-0">
+                        <a class="nav-link <?= $activeTab === 'menu' ? 'active' : '' ?>" 
+                        href="<?= base_url('/settings/menu') ?>">
+                            <i class="ri-lock-line me-2"></i> Menu Akses
+                        </a>
+                    </li>
+
                 </ul>
             </div>
         </div>
@@ -62,4 +77,15 @@ document.getElementById('togglePassword')?.addEventListener('click', function() 
     }
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    $('.js-role-select').select2({
+      width: '100%',
+      placeholder: "Pilih role...",
+      allowClear: true
+    });
+  });
+</script>
+
 <?= $this->endSection(); ?>

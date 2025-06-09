@@ -43,6 +43,48 @@ $routes->group('', function ($routes) {
 });
 
 /**
+ * --------------------------------------------------------------------
+ * Routes untuk Manajemen Kurir
+ * --------------------------------------------------------------------
+ * Semua route ini butuh otentikasi (filter: auth)
+ * Pastikan Middleware 'auth' udah diterapkan
+ */
+$routes->group('courier', ['filter' => 'auth'], static function ($routes) {
+    /**
+     * Tampilkan daftar kurir
+     */
+    $routes->get('/', 'Courier::index');
+
+    /**
+     * Tampilkan form tambah kurir
+     */
+    $routes->get('create', 'Courier::create');
+
+    /**
+     * Simpan data kurir baru
+     */
+    $routes->post('store', 'Courier::store');
+
+    /**
+     * Tampilkan form edit kurir
+     */
+    $routes->get('edit/(:num)', 'Courier::edit/$1');
+
+    /**
+     * Update data kurir
+     */
+    $routes->post('update/(:num)', 'Courier::update/$1');
+});
+
+/**
+ * --------------------------------------------------------------------
+ * API untuk DataTables Server-Side Processing
+ * --------------------------------------------------------------------
+ */
+$routes->get('api/couriers', 'Api\CourierApi::list', ['filter' => 'auth']);
+
+
+/**
  * 📌 Routes untuk Halaman yang Membutuhkan Login
  * 
  * Middleware `auth` memastikan hanya user yang sudah login
@@ -124,8 +166,26 @@ $routes->group('', ['filter' => 'admin'], function ($routes) {
         // Pengaturan keamanan
         $routes->get('security', 'Setting::securityConfig', ['as' => 'settings.security']);
         $routes->post('security/update', 'Setting::updateSecurityConfig', ['as' => 'settings.security.update']);
+
+        // Pengaturan menu akses
+        $routes->get('menu', 'Setting::menuConfig', ['as' => 'settings.menu']);
+        $routes->post('menu/toggle', 'Setting::toggleMenuAccess', ['as' => 'settings.menu.toggle']);
+        $routes->post('menu/save-matrix', 'Setting::saveMatrixAccess', ['filter' => 'role:superuser']);
+        $routes->post('menu/roles', 'Setting::updateMenuRoles', ['filter' => 'auth']);
     });
 });
+
+/**
+ * 📌 GUI Manajemen Menu
+ */
+$routes->group('settings/menus', ['filter' => 'admin'], function ($routes) {
+    $routes->get('/', 'MenuManagement::index');
+    $routes->post('save', 'MenuManagement::save');
+    $routes->get('delete/(:num)', 'MenuManagement::delete/$1');
+});
+
+
+
 
 /**
  * 📌 Routes untuk Manage Permissions
@@ -556,7 +616,49 @@ $routes->group('soscom-transactions', ['filter' => 'auth'], static function ($ro
      * 🧾 @var GET Download Template Excel
      */
     $routes->get('download-template', 'SoscomTransaction::downloadTemplate'); // ✅ ini yang error 404
+
+    $routes->post('get-statistics', 'SoscomTransaction::getStatistics');
+
 });
+
+$routes->group('crm-transactions', ['filter' => 'auth'], static function ($routes) {
+    /**
+     * @group CRM Transactions Routes
+     */
+    $routes->get('/', 'CrmTransaction::index');
+    $routes->post('get-data', 'CrmTransaction::getData');
+    $routes->post('import', 'CrmTransaction::importExcel');
+    $routes->get('confirm-import', 'CrmTransaction::confirmImport');
+    $routes->post('save-imported', 'CrmTransaction::saveImportedData');
+    $routes->post('get-statistics', 'CrmTransaction::getStatistics');
+    $routes->get('download-template', 'CrmTransaction::downloadTemplate');
+});
+
+$routes->group('api', ['namespace' => 'App\Controllers\Api'], function ($routes) {
+    /**
+     * 📍 Regional Data from BinderByte
+     */
+    $routes->get('provinces', 'Region::provinces');
+    $routes->get('cities/(:any)', 'Region::cities/$1');
+    $routes->get('districts/(:any)', 'Region::districts/$1');
+    $routes->get('villages/(:any)', 'Region::villages/$1');
+    $routes->get('postal-code/(:segment)', 'Region::postalCode/$1');
+
+});
+
+$routes->group('postalcode', ['filter' => 'auth'], function ($routes) {
+    /**
+     * @group PostalCode Management
+     * Routes untuk monitoring & update kodepos
+     */
+    $routes->get('/', 'PostalCode::index');
+    $routes->post('runBatch', 'PostalCode::runBatch');
+    $routes->get('list', 'PostalCode::list');
+    $routes->get('ajaxList', 'PostalCode::ajaxList');
+});
+
+$routes->get('postalcode/reference', 'PostalCodeReference::index');
+
 
 
 
@@ -575,5 +677,23 @@ $routes->group('customers', ['filter' => 'auth'], function($routes) {
      * @api {get} Detail customer
      */
     $routes->get('detail/(:num)', 'Customer::detail/$1');
+    $routes->post('history/(:num)', 'Customer::history/$1');
+    $routes->post('update/(:num)', 'Customer::update/$1');
+    $routes->get('edit/(:num)', 'Customer::edit/$1');
+
+
   });
   
+
+// 🚨 Tambahkan di dalam group route admin atau authenticated
+$routes->group('soscom-teams', ['filter' => 'auth'], function($routes) {
+    /**
+     * Route untuk CRUD Soscom Team
+     */
+    $routes->get('/', 'SoscomTeam::index');
+    $routes->get('create', 'SoscomTeam::create');
+    $routes->post('store', 'SoscomTeam::store');
+    $routes->get('edit/(:num)', 'SoscomTeam::edit/$1');
+    $routes->post('update/(:num)', 'SoscomTeam::update/$1');
+    $routes->get('delete/(:num)', 'SoscomTeam::delete/$1');
+});

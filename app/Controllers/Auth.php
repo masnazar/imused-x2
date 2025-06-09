@@ -71,7 +71,7 @@ class Auth extends Controller
             'whatsapp'   => $this->request->getPost('whatsapp'),
             'birth_date' => $this->request->getPost('birth_date'),
             'gender'     => $this->request->getPost('gender'),
-            'role_id'    => 2, // Default User
+            'role_id'    => $this->userService->getRoleIdBySlug('user-baru'),
             'password'   => $this->request->getPost('password')
         ];
 
@@ -150,7 +150,7 @@ class Auth extends Controller
         $permissions = $this->userService->getPermissionsByUserId($login['id']);
         session()->set('user_permissions', $permissions);
 
-        return redirect()->to('/dashboard')->with('success', 'Login berhasil!');
+        return redirect()->to('/')->with('success', 'Login berhasil!');
     }
 
     /**

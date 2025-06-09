@@ -13,4 +13,12 @@ class BaseController extends Controller
     {
         parent::initController($request, $response, $logger);
     }
+
+    protected function renderSidebar()
+{
+    $roleId = session()->get('role_id');
+    $menuService = new \App\Services\MenuService();
+    return $menuService->getSidebarMenusForRole($roleId);
+}
+
 }

@@ -84,7 +84,8 @@ class Filters extends BaseFilters
             'purchase-orders/getStatistics',
             'forecast',
             'forecast/predict-single',
-            'soscom-transactions/get-data'
+            'soscom-transactions/get-data',
+            'customers/history/*'
         ]],
     ],
         'after' => [

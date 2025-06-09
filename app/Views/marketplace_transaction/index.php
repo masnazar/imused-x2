@@ -106,22 +106,24 @@
   </div>
 </div>
     <table id="transactionTable" class="table table-hover table-borderless mb-0">
-      <thead class="bg-light">
-        <tr>
-          <th>Tanggal</th>
-          <th>Order</th>
-          <th>Tracking</th>
-          <th>Brand</th>
-          <th>Produk</th>
-          <th class="text-end">Qty</th>
-          <th class="text-end">Harga Jual</th>
-          <th class="text-end">HPP</th>
-          <th class="text-end">Diskon</th>
-          <th class="text-end">Fee Admin</th>
-          <th class="text-end">Laba</th>
-          <th>Status</th>
-        </tr>
-      </thead>
+    <thead class="bg-light">
+      <tr>
+        <th>Tanggal</th>
+        <th>Order</th>
+        <th>Tracking</th>
+        <th>Brand</th>
+        <th>Produk</th>
+        <th class="text-end">Qty</th>
+        <th class="text-end">Harga Jual</th>
+        <th class="text-end">HPP</th>
+        <th class="text-end">Diskon</th>
+        <th class="text-end">Fee Admin</th>
+        <th class="text-end">Laba</th>
+        <th>Diproses Oleh</th> <!-- 🔥 Tambahan -->
+        <th>Created / Updated</th> <!-- 🔥 Tambahan -->
+        <th>Status</th>
+      </tr>
+    </thead>
     </table>
   </div>
 </div>
@@ -216,6 +218,35 @@ const table = $('#transactionTable').DataTable({
     { data: 'discount', render: formatter.format, className: 'text-end' },
     { data: 'admin_fee', render: formatter.format, className: 'text-end' },
     { data: 'gross_profit', render: d => `<strong>${formatter.format(d)}</strong>`, className: 'text-end' },
+    {
+  data: 'processed_by',
+  render: d => d ? `<span class="fw-medium text-primary">${d}</span>` : '-',
+  className: 'align-middle'
+},
+{
+  data: null,
+  className: 'align-middle text-nowrap',
+  render: function (data, type, row) {
+    const created = new Date(row.created_at);
+    const updated = new Date(row.updated_at);
+
+    const iconC = '<i class="ri-time-line text-primary me-1"></i>';
+    const iconU = '<i class="ri-edit-line text-success me-1"></i>';
+
+    const format = d => {
+      const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+      const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      return `${hari[d.getDay()]}, ${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    return `
+      <div class="small lh-sm">
+        ${iconC}<span>${format(created)}</span><br>
+        ${iconU}<span>${format(updated)}</span>
+      </div>
+    `;
+  }
+},
     {
   data: 'status',
   render: function (d) {

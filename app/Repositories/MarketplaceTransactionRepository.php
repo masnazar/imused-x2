@@ -65,8 +65,10 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
             transactions.*, 
             brands.brand_name, 
             brands.primary_color,
-            couriers.courier_code AS courier_code
+            couriers.courier_code AS courier_code,
+            u.name AS processed_by_name
         ')
+        ->join('users u', 'u.id = transactions.processed_by', 'left')
         ->join('brands', 'brands.id = transactions.brand_id', 'left')
         ->join('couriers', 'couriers.id = transactions.courier_id', 'left')
         ->where('transactions.platform', $platform)

@@ -48,4 +48,22 @@ class Services extends BaseService
             );
         }
 
+        public static function binderbyteClient()
+{
+    $client = \Config\Services::curlrequest([
+        'baseURI' => 'https://api.binderbyte.com/',
+    ]);
+    return $client;
+}
+
+public static function menu($getShared = true)
+{
+    if ($getShared) {
+        return static::getSharedInstance('menu');
+    }
+
+    return new \App\Services\MenuService();
+}
+
+
 }

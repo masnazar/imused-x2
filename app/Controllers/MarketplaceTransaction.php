@@ -269,7 +269,20 @@ public function store(string $platform): ResponseInterface
         }
 
         // ✅ Ambil juga produk-produknya
-        $products = $this->service->getTransactionProducts($id); // Tambahin ini
+        $productsRaw = $this->service->getTransactionProducts($id);
+
+$totalQty = array_sum(array_column($productsRaw, 'quantity')) ?: 1; // Hindari bagi 0
+
+$products = array_map(function ($item) use ($transaction, $totalQty) {
+    $item['discount'] = round($transaction['discount'] * ($item['quantity'] / $totalQty));
+    $item['admin_fee'] = round($transaction['admin_fee'] * ($item['quantity'] / $totalQty));
+    $item['estimated_profit'] = ($item['unit_selling_price'] * $item['quantity']) 
+                               - ($item['hpp'] * $item['quantity']) 
+                               - $item['discount'] 
+                               - $item['admin_fee'];
+    return $item;
+}, $productsRaw);
+
         $tracking = null;
         $trackingSummary = null;
 
@@ -406,16 +419,28 @@ public function importExcel(string $platform): ResponseInterface
 
         foreach (array_slice($rows, 1) as $i => $row) {
             $rowNumber = $i + 2;
+        
+            // 🧼 Lewati baris benar-benar kosong
+            if (empty(array_filter($row))) {
+                log_message('debug', "ℹ️ Baris $rowNumber dilewati karena kosong.");
+                continue;
+            }
+        
             $rowData = [];
-
-            // Sanitize dan map kolom
+        
             foreach ($headerMap as $col => $key) {
                 $rowData[$key] = trim((string)($row[$col] ?? ''));
             }
-
-            // Tanggal
+        
+            // 🕓 Validasi tanggal
             if (is_numeric($rowData['date'])) {
-                $rowData['date'] = ExcelDate::excelToDateTimeObject($rowData['date'])->format('Y-m-d');
+                try {
+                    $rowData['date'] = ExcelDate::excelToDateTimeObject($rowData['date'])->format('Y-m-d');
+                } catch (\Throwable $e) {
+                    $errorMessages[] = "Baris $rowNumber: Gagal konversi tanggal dari format numerik.";
+                    log_message('error', "❌ Gagal konversi Excel date di baris $rowNumber: " . $e->getMessage());
+                    continue;
+                }
             } elseif (strtotime($rowData['date'])) {
                 $rowData['date'] = date('Y-m-d', strtotime($rowData['date']));
             } else {

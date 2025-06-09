@@ -103,6 +103,7 @@ class Autoload extends AutoloadConfig
     'period',
     'date',
     'logtrail',
-    'periode'
+    'periode',
+    'role'
     ];
 }
