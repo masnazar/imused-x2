@@ -19,6 +19,7 @@ class MenuModel extends Model
         'parent_id',
         'is_active',
         'sort_order',
+        'is_section',
         'created_at',
         'updated_at',
     ];

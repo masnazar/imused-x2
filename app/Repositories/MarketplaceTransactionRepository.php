@@ -58,9 +58,9 @@ class MarketplaceTransactionRepository
     return $builder;
 }
 
-public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilder
+public function getBaseQuery(?string $platform = null): \CodeIgniter\Database\BaseBuilder
 {
-    return $this->db->table('marketplace_transactions AS transactions')
+    $builder = $this->db->table('marketplace_transactions AS transactions')
         ->select('
             transactions.*, 
             brands.brand_name, 
@@ -71,9 +71,16 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
         ->join('users u', 'u.id = transactions.processed_by', 'left')
         ->join('brands', 'brands.id = transactions.brand_id', 'left')
         ->join('couriers', 'couriers.id = transactions.courier_id', 'left')
-        ->where('transactions.platform', $platform)
         ->orderBy('transactions.date', 'desc');
+
+    if (!empty($platform) && strtolower($platform) !== 'all') {
+        $builder->where('transactions.platform', ucfirst(strtolower($platform)));
+    }
+
+    return $builder;
 }
+
+
 
 
     /**
@@ -90,18 +97,19 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
             'SUM(hpp + discount + admin_fee) AS total_expenses',
             'SUM(gross_profit) AS gross_profit'
         ])
-        ->where('platform', $platform)
         ->where('deleted_at', null);
 
-    // 🔍 Filter Brand
+    // 🧠 Platform check
+    if (strtolower($platform) !== 'all') {
+        $builder->where('platform', $platform);
+    }
+
     if (!empty($filters['brand_id'])) {
         $builder->where('brand_id', $filters['brand_id']);
     }
 
-    // 📆 Filter Periode atau Custom Date
     if (($filters['jenis_filter'] ?? '') === 'periode' && !empty($filters['periode'])) {
         [$start, $end] = get_date_range_from_periode($filters['periode']);
-
         if ($start && $end) {
             $builder->where('date >=', $start)
                     ->where('date <=', $end);
@@ -120,6 +128,7 @@ public function getBaseQuery(string $platform): \CodeIgniter\Database\BaseBuilde
         'gross_profit'   => (float) ($result['gross_profit'] ?? 0)
     ];
 }
+
 
 /**
  * Ambil detail produk berdasarkan ID transaksi
@@ -158,5 +167,43 @@ public function getHistoricalSales(int $productId, string $startDate, string $en
     return array_map(fn($row) => (int)$row['total_qty'], $result);
 }
 
+// 📁 app/Repositories/MarketplaceTransactionRepository.php
+
+public function getBaseQueryAll(array $params): \CodeIgniter\Database\BaseBuilder
+{
+    $builder = $this->db->table('marketplace_transactions')
+        ->select('
+            marketplace_transactions.*, 
+            brands.brand_name, 
+            brands.primary_color,
+            users.name as processed_by_name
+        ')
+        ->join('brands', 'brands.id = marketplace_transactions.brand_id', 'left')
+        ->join('users', 'users.id = marketplace_transactions.processed_by', 'left')
+        ->orderBy('marketplace_transactions.date', 'desc');
+
+    // Filter brand
+    if (!empty($params['brand_id'])) {
+        $builder->where('marketplace_transactions.brand_id', $params['brand_id']);
+    }
+
+    // Filter tanggal
+    if (!empty($params['start_date']) && !empty($params['end_date'])) {
+        $builder->where('marketplace_transactions.date >=', $params['start_date']);
+        $builder->where('marketplace_transactions.date <=', $params['end_date']);
+    }
+
+    // Filter pencarian
+    if (!empty($params['search'])) {
+        $builder->groupStart()
+            ->like('marketplace_transactions.order_number', $params['search'])
+            ->orLike('marketplace_transactions.tracking_number', $params['search'])
+            ->orLike('brands.brand_name', $params['search'])
+            ->orLike('store_name', $params['search'])
+            ->groupEnd();
+    }
+
+    return $builder;
+}
 
 }

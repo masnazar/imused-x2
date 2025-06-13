@@ -82,6 +82,26 @@ public function getPaginatedTransactions(array $params): array
             ->groupEnd();
     }
 
+    // Tambahkan ini setelah join dan search
+if (!empty($params['jenis_filter']) && $params['jenis_filter'] === 'periode') {
+    if (!empty($params['periode'])) {
+        helper('periode');
+        [$start, $end] = get_date_range_from_periode($params['periode']);
+        if ($start && $end) {
+            $builder->where('st.date >=', $start)
+                    ->where('st.date <=', $end);
+        }
+    }
+} elseif (!empty($params['jenis_filter']) && $params['jenis_filter'] === 'custom') {
+    if (!empty($params['start_date'])) {
+        $builder->where('st.date >=', $params['start_date']);
+    }
+    if (!empty($params['end_date'])) {
+        $builder->where('st.date <=', $params['end_date']);
+    }
+}
+
+
     // ⏱️ Order by (default: terbaru)
     if (!empty($params['order'][0]['column']) && isset($columnMap[$params['order'][0]['column']])) {
         $colIndex = $params['order'][0]['column'];

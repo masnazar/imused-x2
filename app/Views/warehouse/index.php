@@ -32,6 +32,7 @@ Daftar Warehouse
                 <thead>
                     <tr>
                         <th>No</th>
+                        <th>Kode</th>
                         <th>Nama</th>
                         <th>Alamat</th>
                         <th>Jenis</th>
@@ -41,43 +42,45 @@ Daftar Warehouse
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($warehouses as $index => $warehouse): ?>
-                        <tr>
-                            <th scope="row"><?= $index + 1 ?></th>
-                            <td><?= esc($warehouse['name']) ?></td>
-                            <td><?= esc($warehouse['address']) ?></td>
-                            <td>
-                                <span class="badge bg-outline-<?= $warehouse['warehouse_type'] == 'Internal' ? 'primary' : 'success' ?>">
-                                    <?= esc($warehouse['warehouse_type']) ?>
-                                </span>
-                            </td>
-                            <td><?= esc($warehouse['pic_name']) ?></td>
-                            <td><?= esc($warehouse['pic_contact']) ?></td>
-                            <td>
-                                <div class="dropdown">
-                                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                        <i class="ri-more-2-fill"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li>
-                                            <a class="dropdown-item text-info" href="<?= base_url('warehouse/edit/' . $warehouse['id']) ?>">
-                                                <i class="ri-edit-line"></i> Edit
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <form action="<?= base_url('warehouse/delete/' . $warehouse['id']) ?>" method="post" class="d-inline" onsubmit="return confirmDelete(event, this)">
-                                                <?= csrf_field() ?>
-                                                <button type="submit" class="dropdown-item text-danger">
-                                                    <i class="ri-delete-bin-5-line"></i> Hapus
-                                                </button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
+    <?php foreach ($warehouses as $index => $warehouse): ?>
+        <tr>
+            <th scope="row"><?= $index + 1 ?></th>
+            <td><?= esc($warehouse['code']) ?></td> <!-- ✅ Tambahan -->
+            <td><?= esc($warehouse['name']) ?></td>
+            <td><?= esc($warehouse['address']) ?></td>
+            <td>
+                <span class="badge bg-outline-<?= $warehouse['warehouse_type'] == 'Internal' ? 'primary' : 'success' ?>">
+                    <?= esc($warehouse['warehouse_type']) ?>
+                </span>
+            </td>
+            <td><?= esc($warehouse['pic_name']) ?></td>
+            <td><?= esc($warehouse['pic_contact']) ?></td>
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="ri-more-2-fill"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item text-info" href="<?= base_url('warehouse/edit/' . $warehouse['id']) ?>">
+                                <i class="ri-edit-line"></i> Edit
+                            </a>
+                        </li>
+                        <li>
+                            <form action="<?= base_url('warehouse/delete/' . $warehouse['id']) ?>" method="post" class="d-inline" onsubmit="return confirmDelete(event, this)">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="ri-delete-bin-5-line"></i> Hapus
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </td>
+        </tr>
+    <?php endforeach; ?>
+</tbody>
+
             </table>
         </div>
     </div>

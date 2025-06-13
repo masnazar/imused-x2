@@ -377,7 +377,7 @@ public function downloadTemplate(): ResponseInterface
         'KODE GUDANG',
         'TEAM A',
         'crm',
-    ];
+    ]; 
 
     // Isi header
     $sheet->fromArray([$headers], null, 'A1');

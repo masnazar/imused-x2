@@ -41,10 +41,14 @@ class BrandService
     {
         $rules = [
             'supplier_id'    => 'required|integer',
+            'kode_brand'     => 'required|alpha_numeric_space|min_length[3]|max_length[20]',
             'brand_name'     => 'required|string|max_length[255]',
             'primary_color'  => 'required|regex_match[/^#[0-9A-Fa-f]{6}$/]',
             'secondary_color'=> 'required|regex_match[/^#[0-9A-Fa-f]{6}$/]',
             'accent_color'   => 'required|regex_match[/^#[0-9A-Fa-f]{6}$/]',
+            'created_at'     => 'permit_empty|valid_date',
+            'updated_at'     => 'permit_empty|valid_date',
+            'deleted_at'     => 'permit_empty|valid_date',
         ];
 
         if (!$this->validation->setRules($rules)->run($data)) {

@@ -47,11 +47,15 @@
           <label class="form-label">Urutan</label>
           <input type="number" name="sort_order" class="form-control" value="<?= esc($menu['sort_order'] ?? 1) ?>">
         </div>
-        <div class="form-check mt-3">
-            <input class="form-check-input" type="checkbox" name="is_section" id="isSection" value="1" <?= !empty($menu['is_section']) ? 'checked' : '' ?>>
-            <label class="form-check-label" for="isSection">
-                Jadikan sebagai kategori/section
+        <div class="col-md-4">
+          <label class="form-label d-block">Kategori</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="is_section" value="1" id="is_section"
+              <?= !empty($menu['is_section']) ? 'checked' : '' ?>>
+            <label class="form-check-label" for="is_section">
+              Jadikan Kategori / Section
             </label>
+          </div>
         </div>
 
         <div class="col-md-4">

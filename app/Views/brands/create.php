@@ -46,6 +46,12 @@ Tambah Brand Baru
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-semibold">Kode Brand</label>
+                        <input type="text" name="kode_brand" class="form-control" value="<?= old('kode_brand') ?>" required>
+                    </div>
+
+
+                    <div class="mb-3">
                         <label class="form-label fw-semibold">Warna Utama</label>
                         <input type="color" name="primary_color" class="form-control form-control-color" value="#000000" required>
                     </div>

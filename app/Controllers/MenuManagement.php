@@ -48,17 +48,19 @@ class MenuManagement extends BaseController
 
     $slug = url_title($data['name'], '-', true);
     $route = trim($data['route']) ?: null;
+    $isSection = $this->request->getPost('is_section') ? 1 : 0;
 
     $saveData = [
-        'name'       => $data['name'],
-        'slug'       => $slug,
-        'route'      => $route,
-        'icon'       => $data['icon'],
-        'parent_id'  => $data['parent_id'] ?: null,
-        'is_section' => $this->request->getPost('is_section') ? 1 : 0,
-        'sort_order' => (int) $data['sort_order'],
-        'is_active'  => (int) $data['is_active'],
-    ];
+            'name'       => $data['name'],
+            'slug'       => $slug,
+            'route'      => $isSection ? null : $route,
+            'icon'       => $isSection ? null : $data['icon'],
+            'parent_id'  => $isSection ? null : ($data['parent_id'] ?: null),
+            'is_section' => $isSection,
+            'sort_order' => (int) $data['sort_order'],
+            'is_active'  => (int) $data['is_active'],
+        ];
+
 
     $db = \Config\Database::connect();
     $db->transStart();

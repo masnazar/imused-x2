@@ -19,6 +19,7 @@ class SoscomDetailTransactionModel extends Model
         'product_id',
         'quantity',
         'hpp',
+        'tracking_number',
         'unit_selling_price',
         'total_hpp',
     ];

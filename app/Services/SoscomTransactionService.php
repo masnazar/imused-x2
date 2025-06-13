@@ -15,7 +15,7 @@ use CodeIgniter\Database\Exceptions\DataException;
 class SoscomTransactionService
 {
     protected SoscomTransactionModel $transactionModel;
-    protected $soscomDetailTransactionModel;
+    protected $soscomDetailTransactionModel; 
     protected InventoryModel $inventoryModel;
     protected ProductModel $productModel;
     protected CustomerModel $customerModel;
@@ -126,7 +126,7 @@ public function saveImportedData(array $importedData)
             ];
         }
 
-        // Validasi stok di inventory
+        // Validasi stok
         $inventory = $this->inventoryModel
             ->where('product_id', $row['product_id'])
             ->where('warehouse_id', $row['warehouse_id'])
@@ -153,6 +153,7 @@ public function saveImportedData(array $importedData)
             'hpp' => $unitHPP,
             'total_hpp' => $totalHPP,
             'unit_selling_price' => $unitPrice,
+            'tracking_number' => $row['tracking_number'],
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s')
         ];
@@ -162,7 +163,6 @@ public function saveImportedData(array $importedData)
         $details = $transaction['details'];
         unset($transaction['details']);
 
-        // Validasi minimal harga jual
         if ($transaction['selling_price'] <= 0) {
             throw new \RuntimeException('❌ Harga jual tidak boleh nol.');
         }
@@ -171,14 +171,28 @@ public function saveImportedData(array $importedData)
         $transactionId = $this->transactionModel->getInsertID();
 
         foreach ($details as $detail) {
-            $detail['transaction_id'] = $transactionId;
-            $this->soscomDetailTransactionModel->insert($detail);
+        $detail['transaction_id'] = $transactionId;
+        $this->soscomDetailTransactionModel->insert($detail);
 
-            // Update stok
-            $this->updateStock($detail['product_id'], $detail['quantity'], $transaction['warehouse_id']);
-        }
+        // Update stok
+        $this->updateStock($detail['product_id'], $detail['quantity'], $transaction['warehouse_id']);
 
-        // Upsert Customer
+        // ⬇️ Masukkan stock_transactions di sini (beneran dalam loop)
+        $this->db->table('stock_transactions')->insert([
+            'warehouse_id'         => $transaction['warehouse_id'],
+            'product_id'           => $detail['product_id'],
+            'quantity'             => $detail['quantity'],
+            'transaction_type'     => 'Outbound',
+            'status'               => 'Stock Out',
+            'transaction_source'   => $transaction['channel'] ?? 'soscom',
+            'related_warehouse_id' => $transaction['warehouse_id'],
+            'reference'            => $detail['tracking_number'], // ✅ tracking number
+            'created_at'           => date('Y-m-d H:i:s')
+        ]);
+    }
+
+
+        // Update / Insert customer
         $this->upsertCustomer($transaction);
     }
 
@@ -204,32 +218,23 @@ public function saveImportedData(array $importedData)
         throw new \RuntimeException("❌ Stok tidak ditemukan untuk Product ID $productId di Warehouse ID $warehouseId");
     }
 
-    // Update stock global (products)
-    $newGlobalStock = max(0, $product['stock'] - $quantity);
+    // Hitung stok baru
+    $newStock = max(0, $product['stock'] - $quantity);
+    $totalStockValue = $newStock * $product['hpp'];
+
+    // Update stok global
     $this->productModel->update($product['id'], [
-        'stock' => $newGlobalStock,
-        'total_nilai_stok' => $newGlobalStock * $product['hpp'],
+        'stock' => $newStock,
+        'hpp' => $product['hpp'],
+        'total_nilai_stok' => $totalStockValue,
         'updated_at' => date('Y-m-d H:i:s')
     ]);
 
-    // Update stock lokal (inventory)
+    // Update stok per warehouse
     $newLocalStock = max(0, $inventory['stock'] - $quantity);
     $this->inventoryModel->update($inventory['id'], [
         'stock' => $newLocalStock,
         'updated_at' => date('Y-m-d H:i:s')
-    ]);
-
-    // Catat ke stock_transactions
-    $this->db->table('stock_transactions')->insert([
-        'warehouse_id' => $warehouseId,
-        'product_id' => $productId,
-        'quantity' => $quantity,
-        'transaction_type' => 'Outbound',
-        'status' => 'Stock Out',
-        'transaction_source' => 'Soscom',
-        'related_warehouse_id' => $warehouseId,
-        'reference' => 'SOSCOM_TXN',
-        'created_at' => date('Y-m-d H:i:s')
     ]);
 }
 

@@ -43,6 +43,7 @@ class WarehouseService
         $rules = [
             'name' => 'required',
             'address' => 'required',
+            'code' => 'required|alpha_numeric_space|min_length[3]|max_length[20]',
             'warehouse_type' => 'required|in_list[Internal,Third-Party]',
             'pic_name' => 'required',
             'pic_contact' => 'required',

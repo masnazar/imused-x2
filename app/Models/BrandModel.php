@@ -10,10 +10,14 @@ class BrandModel extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = [
         'supplier_id',
+        'kode_brand',
         'brand_name',
         'primary_color',
         'secondary_color',
         'accent_color',
+        'created_at',
+        'updated_at',
+        'deleted_at'
     ];
     protected $useTimestamps = true;
 }

@@ -21,7 +21,7 @@ Daftar Brand
     <div class="btn-list">
         <a href="<?= base_url('brands/create') ?>" class="btn btn-primary btn-wave">
             <i class="ri-add-line me-1"></i> Tambah Brand
-        </a>
+        </a> 
     </div>
 </div>
 
@@ -33,6 +33,7 @@ Daftar Brand
                     <tr>
                         <th>No</th>
                         <th>Nama Brand</th>
+                        <th>Kode Brand</th>
                         <th>Supplier</th>
                         <th>Warna</th>
                         <th>Aksi</th>
@@ -43,6 +44,7 @@ Daftar Brand
                         <tr>
                             <th scope="row"><?= $index + 1 ?></th>
                             <td><?= esc($brand['brand_name']) ?></td>
+                            <td><?= esc($brand['kode_brand']) ?></td>
                             <td><?= esc($brand['supplier_name']) ?></td>
                             <td>
                                 <span class="badge" style="background-color: <?= esc($brand['primary_color']) ?>;">

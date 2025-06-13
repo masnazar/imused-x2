@@ -105,6 +105,7 @@
                     <th>Status</th>
                     <th>Source</th>
                     <th>Gudang Tujuan</th>
+                    <th>Reference</th>
                     <th>Waktu</th>
                 </tr>
             </thead>
@@ -250,6 +251,7 @@ $(document).ready(function () {
     const table = $('#stockTable').DataTable({
         processing: true,
         serverSide: true,
+        order: [[8, 'desc']],
         dom: '<"d-flex justify-content-between align-items-center mb-2"Bf><"table-responsive"t><"d-flex justify-content-between align-items-center mt-2"lip>',
      buttons: [
     {
@@ -327,6 +329,7 @@ $(document).ready(function () {
             { data: 'status' },
             { data: 'transaction_source' },
             { data: 'related_warehouse_name' },
+            { data: 'reference' },
             {
                 data: 'created_at',
                 render: function (data) {

@@ -3,628 +3,210 @@
 use CodeIgniter\Router\RouteCollection;
 
 /**
- * File Routes
- * 
- * File ini berisi semua definisi routing untuk aplikasi.
- * Setiap grup route dilengkapi dengan middleware dan docBlock
- * untuk mempermudah pemahaman.
+ * ---------------------------------------------------------------
+ * ROUTES FILE
+ * ---------------------------------------------------------------
+ * Semua definisi routing aplikasi disimpan di sini.
  */
 
-/**
- * 📌 Routes untuk Autentikasi
- * 
- * Menangani proses:
- * - Registrasi
- * - Login
- * - Logout
- * - Aktivasi akun
- * - Lupa & Reset Password
- */
+// ======================= AUTH =======================
 $routes->group('', function ($routes) {
-    // Registrasi
-    $routes->get('/register', 'Auth::register');
-    $routes->post('/register', 'Auth::processRegister');
-
-    // Login
-    $routes->get('/login', 'Auth::login');
-    $routes->post('/login', 'Auth::processLogin');
-
-    // Logout
-    $routes->get('/logout', 'Auth::logout');
-
-    // Aktivasi akun
-    $routes->get('/activate/(:any)/(:any)', 'Auth::activate/$1/$2');
-
-    // Lupa & Reset Password
+    $routes->get('register', 'Auth::register');
+    $routes->post('register', 'Auth::processRegister');
+    $routes->get('login', 'Auth::login');
+    $routes->post('login', 'Auth::processLogin');
+    $routes->get('logout', 'Auth::logout');
+    $routes->get('activate/(:any)/(:any)', 'Auth::activate/$1/$2');
     $routes->get('forgot-password', 'Auth::forgotPassword');
     $routes->post('forgot-password', 'Auth::processForgotPassword');
     $routes->get('reset-password/(:any)', 'Auth::resetPasswordForm/$1');
     $routes->post('reset-password/(:any)', 'Auth::processResetPassword/$1');
 });
 
-/**
- * --------------------------------------------------------------------
- * Routes untuk Manajemen Kurir
- * --------------------------------------------------------------------
- * Semua route ini butuh otentikasi (filter: auth)
- * Pastikan Middleware 'auth' udah diterapkan
- */
-$routes->group('courier', ['filter' => 'auth'], static function ($routes) {
-    /**
-     * Tampilkan daftar kurir
-     */
-    $routes->get('/', 'Courier::index');
-
-    /**
-     * Tampilkan form tambah kurir
-     */
-    $routes->get('create', 'Courier::create');
-
-    /**
-     * Simpan data kurir baru
-     */
-    $routes->post('store', 'Courier::store');
-
-    /**
-     * Tampilkan form edit kurir
-     */
-    $routes->get('edit/(:num)', 'Courier::edit/$1');
-
-    /**
-     * Update data kurir
-     */
-    $routes->post('update/(:num)', 'Courier::update/$1');
-});
-
-/**
- * --------------------------------------------------------------------
- * API untuk DataTables Server-Side Processing
- * --------------------------------------------------------------------
- */
-$routes->get('api/couriers', 'Api\CourierApi::list', ['filter' => 'auth']);
-
-
-/**
- * 📌 Routes untuk Halaman yang Membutuhkan Login
- * 
- * Middleware `auth` memastikan hanya user yang sudah login
- * yang dapat mengakses halaman ini.
- */
+// ======================= DASHBOARD & PROFILE =======================
 $routes->group('', ['filter' => 'auth'], function ($routes) {
-    // Halaman utama
     $routes->get('/', 'Home::index');
-
-    // Dashboard
-    $routes->get('/dashboard', 'Dashboard::index');
-
-    // Profil pengguna
-    $routes->get('/profile', 'Profile::edit');
-    $routes->post('/profile/update', 'Profile::update');
+    $routes->get('dashboard', 'Dashboard::index');
+    $routes->get('profile', 'Profile::edit');
+    $routes->post('profile/update', 'Profile::update');
     $routes->post('profile/update-password', 'Profile::updatePassword');
 });
 
-/**
- * 📌 Routes untuk Modul Supplier
- * 
- * Middleware `auth` dan `permission` memastikan user memiliki
- * izin yang sesuai untuk mengakses setiap endpoint.
- */
+// ======================= SUPPLIER =======================
 $routes->group('suppliers', ['filter' => 'auth'], function ($routes) {
-    // 📄 Melihat daftar supplier
-    $routes->get('/', 'Supplier::index', [
-        'as' => 'suppliers.index',
-        'filter' => 'permission:view_supplier'
-    ]);
-
-    // ➕ Menambahkan supplier
-    $routes->get('create', 'Supplier::create', [
-        'as' => 'suppliers.create',
-        'filter' => 'permission:create_supplier'
-    ]);
-    $routes->post('store', 'Supplier::store', [
-        'as' => 'suppliers.store',
-        'filter' => 'permission:create_supplier'
-    ]);
-
-    // ✏️ Mengedit supplier
-    $routes->get('edit/(:num)', 'Supplier::edit/$1', [
-        'as' => 'suppliers.edit',
-        'filter' => 'permission:edit_supplier'
-    ]);
-    $routes->post('update/(:num)', 'Supplier::update/$1', [
-        'as' => 'suppliers.update',
-        'filter' => 'permission:edit_supplier'
-    ]);
-
-    // ❌ Menghapus supplier
-    $routes->post('delete/(:num)', 'Supplier::delete/$1', [
-        'as' => 'suppliers.delete',
-        'filter' => 'permission:delete_supplier'
-    ]);
+    $routes->get('/', 'Supplier::index');
+    $routes->get('create', 'Supplier::create');
+    $routes->post('store', 'Supplier::store');
+    $routes->get('edit/(:num)', 'Supplier::edit/$1');
+    $routes->post('update/(:num)', 'Supplier::update/$1');
+    $routes->post('delete/(:num)', 'Supplier::delete/$1');
 });
 
-/**
- * 📌 Routes untuk Halaman Admin
- * 
- * Middleware `admin` memastikan hanya user dengan role_id = 1
- * (Administrator) yang dapat mengakses halaman ini.
- */
-$routes->group('', ['filter' => 'admin'], function ($routes) {
-    // Halaman pengaturan utama
-    $routes->get('settings', 'Setting::index', ['as' => 'settings.index']);
+// ======================= COURIER =======================
+$routes->group('courier', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Courier::index');
+    $routes->get('create', 'Courier::create');
+    $routes->post('store', 'Courier::store');
+    $routes->get('edit/(:num)', 'Courier::edit/$1');
+    $routes->post('update/(:num)', 'Courier::update/$1');
+});
+$routes->get('api/couriers', 'Api\CourierApi::list', ['filter' => 'auth']);
 
-    // Grup pengaturan
-    $routes->group('settings', function ($routes) {
-        // Pengaturan sistem
-        $routes->get('system', 'Setting::systemConfig', ['as' => 'settings.system']);
-        $routes->post('system/update', 'Setting::updateSystemConfig', ['as' => 'settings.system.update']);
-
-        // Pengaturan email
-        $routes->get('email', 'Setting::emailConfig', ['as' => 'settings.email']);
-        $routes->post('email/update', 'Setting::updateEmailConfig', ['as' => 'settings.email.update']);
-
-        // Pengaturan keamanan
-        $routes->get('security', 'Setting::securityConfig', ['as' => 'settings.security']);
-        $routes->post('security/update', 'Setting::updateSecurityConfig', ['as' => 'settings.security.update']);
-
-        // Pengaturan menu akses
-        $routes->get('menu', 'Setting::menuConfig', ['as' => 'settings.menu']);
-        $routes->post('menu/toggle', 'Setting::toggleMenuAccess', ['as' => 'settings.menu.toggle']);
-        $routes->post('menu/save-matrix', 'Setting::saveMatrixAccess', ['filter' => 'role:superuser']);
-        $routes->post('menu/roles', 'Setting::updateMenuRoles', ['filter' => 'auth']);
-    });
+// ======================= SETTINGS =======================
+$routes->group('settings', ['filter' => 'admin'], function ($routes) {
+    $routes->get('/', 'Setting::index');
+    $routes->get('system', 'Setting::systemConfig');
+    $routes->post('system/update', 'Setting::updateSystemConfig');
+    $routes->get('email', 'Setting::emailConfig');
+    $routes->post('email/update', 'Setting::updateEmailConfig');
+    $routes->get('security', 'Setting::securityConfig');
+    $routes->post('security/update', 'Setting::updateSecurityConfig');
+    $routes->get('menu', 'Setting::menuConfig');
+    $routes->post('menu/toggle', 'Setting::toggleMenuAccess');
+    $routes->post('menu/save-matrix', 'Setting::saveMatrixAccess');
+    $routes->post('menu/roles', 'Setting::updateMenuRoles');
 });
 
-/**
- * 📌 GUI Manajemen Menu
- */
 $routes->group('settings/menus', ['filter' => 'admin'], function ($routes) {
     $routes->get('/', 'MenuManagement::index');
     $routes->post('save', 'MenuManagement::save');
     $routes->get('delete/(:num)', 'MenuManagement::delete/$1');
 });
 
-
-
-
-/**
- * 📌 Routes untuk Manage Permissions
- * 
- * Middleware `admin` memastikan hanya Administrator yang dapat
- * mengakses halaman ini.
- */
+// ======================= PERMISSIONS =======================
 $routes->group('permissions', ['filter' => 'admin'], function ($routes) {
-    // Daftar permission
-    $routes->get('/', 'Permission::index', ['as' => 'permissions.index']);
-
-    // Menambahkan permission
-    $routes->get('create', 'Permission::create', ['as' => 'permissions.create']);
-    $routes->post('store', 'Permission::store', ['as' => 'permissions.store']);
-
-    // Mengedit permission
-    $routes->get('edit/(:num)', 'Permission::edit/$1', ['as' => 'permissions.edit']);
-    $routes->post('update/(:num)', 'Permission::update/$1', ['as' => 'permissions.update']);
-
-    // Menghapus permission
-    $routes->post('delete/(:num)', 'Permission::delete/$1', ['as' => 'permissions.delete']);
-
-    // Mengelola role dan permission
-    $routes->get('roles', 'Permission::manageRoles', ['as' => 'permissions.roles']);
-    $routes->post('roles/update', 'Permission::updateRolePermissions', ['as' => 'permissions.roles.update']);
-
-    // Assign permission ke user
-    $routes->get('assign', 'Permission::assign', ['as' => 'permissions.assign']);
-    $routes->post('assign_process', 'Permission::assignProcess', ['as' => 'permissions.assign_process']);
-});
-
-/**
- * 📌 Routes untuk Modul Role
- * 
- * Middleware `role` memastikan hanya user dengan role tertentu
- * yang dapat mengakses halaman ini.
- */
-$routes->group('roles', ['filter' => 'role:Administrator,Manager'], function ($routes) {
-    // Daftar role
-    $routes->get('/', 'Role::index', ['as' => 'roles.index']);
-
-    // Menambahkan role
-    $routes->get('create', 'Role::create', ['as' => 'roles.create']);
-    $routes->post('store', 'Role::store', ['as' => 'roles.store']);
-
-    // Mengedit role
-    $routes->get('edit/(:num)', 'Role::edit/$1', ['as' => 'roles.edit']);
-    $routes->post('update/(:num)', 'Role::update/$1', ['as' => 'roles.update']);
-
-    // Menghapus role
-    $routes->post('delete/(:num)', 'Role::delete/$1', ['as' => 'roles.delete']);
-});
-
-/**
- * 📌 Routes untuk Modul Brand
- * 
- * Middleware `auth` dan `permission` memastikan user memiliki
- * izin yang sesuai untuk mengakses setiap endpoint.
- */
-$routes->group('brands', ['filter' => 'auth'], function ($routes) {
-    // 📄 Melihat daftar brand
-    $routes->get('/', 'Brand::index', [
-        'as' => 'brands.index',
-        'filter' => 'permission:view_brand'
-    ]);
-
-    // ➕ Menambahkan brand
-    $routes->get('create', 'Brand::create', [
-        'as' => 'brands.create',
-        'filter' => 'permission:create_brand'
-    ]);
-    $routes->post('store', 'Brand::store', [
-        'as' => 'brands.store',
-        'filter' => 'permission:create_brand'
-    ]);
-
-    // ✏️ Mengedit brand
-    $routes->get('edit/(:num)', 'Brand::edit/$1', [
-        'as' => 'brands.edit',
-        'filter' => 'permission:edit_brand'
-    ]);
-    $routes->post('update/(:num)', 'Brand::update/$1', [
-        'as' => 'brands.update',
-        'filter' => 'permission:edit_brand'
-    ]);
-
-    // ❌ Menghapus brand
-    $routes->post('delete/(:num)', 'Brand::delete/$1', [
-        'as' => 'brands.delete',
-        'filter' => 'permission:delete_brand'
-    ]);
-});
-
-/**
- * 📌 Routes untuk Modul Produk
- * 
- * Middleware `role` & `permission` memastikan user punya role & izin yang sesuai.
- */
-$routes->group('products', ['filter' => 'role:Administrator,Manager'], function ($routes) {
-    // 📄 Melihat daftar produk
-    $routes->get('/', 'Product::index', [
-        'as' => 'products.index',
-        'filter' => 'permission:view_product'
-    ]);
-
-    // ➕ Menambahkan produk
-    $routes->get('create', 'Product::create', [
-        'as' => 'products.create',
-        'filter' => 'permission:create_product'
-    ]);
-    $routes->post('store', 'Product::store', [
-        'as' => 'products.store',
-        'filter' => 'permission:create_product'
-    ]);
-
-    // ✏️ Mengedit produk
-    $routes->get('edit/(:num)', 'Product::edit/$1', [
-        'as' => 'products.edit',
-        'filter' => 'permission:edit_product'
-    ]);
-    $routes->post('update/(:num)', 'Product::update/$1', [
-        'as' => 'products.update',
-        'filter' => 'permission:edit_product'
-    ]);
-
-    // ❌ Menghapus produk
-    $routes->post('delete/(:num)', 'Product::delete/$1', [
-        'as' => 'products.delete',
-        'filter' => 'permission:delete_product'
-    ]);
-});
-
-/**
- * 📌 Routes untuk Modul Gudang
- * 
- * Middleware `role` & `permission` memastikan user punya akses sesuai perannya.
- */
-$routes->group('warehouse', ['filter' => 'role:Administrator,Manager'], function ($routes) {
-    // 📄 Melihat daftar gudang
-    $routes->get('/', 'Warehouse::index', [
-        'as' => 'warehouse.index',
-        'filter' => 'permission:view_warehouse'
-    ]);
-
-    // ➕ Menambahkan gudang
-    $routes->get('create', 'Warehouse::create', [
-        'as' => 'warehouse.create',
-        'filter' => 'permission:create_warehouse'
-    ]);
-    $routes->post('store', 'Warehouse::store', [
-        'as' => 'warehouse.store',
-        'filter' => 'permission:create_warehouse'
-    ]);
-
-    // ✏️ Mengedit gudang
-    $routes->get('edit/(:num)', 'Warehouse::edit/$1', [
-        'as' => 'warehouse.edit',
-        'filter' => 'permission:edit_warehouse'
-    ]);
-    $routes->post('update/(:num)', 'Warehouse::update/$1', [
-        'as' => 'warehouse.update',
-        'filter' => 'permission:edit_warehouse'
-    ]);
-
-    // ❌ Menghapus gudang
-    $routes->post('delete/(:num)', 'Warehouse::delete/$1', [
-        'as' => 'warehouse.delete',
-        'filter' => 'permission:delete_warehouse'
-    ]);
-});
-
-/**
- * 📌 Routes untuk Modul Inventory
- * 
- * Middleware `auth` + `permission` untuk otorisasi setiap aksi.
- */
-$routes->group('inventory', ['filter' => 'auth'], function ($routes) {
-    // 📄 Lihat daftar inventory
-    $routes->get('/', 'Inventory::index', [
-        'as' => 'inventory.index',
-        'filter' => 'permission:view_inventory'
-    ]);
-
-    // 🔄 Update stok manual (adjustment, koreksi, dll)
-    $routes->post('update-stock', 'Inventory::updateStock', [
-        'as' => 'inventory.updateStock',
-        'filter' => 'permission:edit_inventory'
-    ]);
-
-    // 📜 Riwayat pergerakan stok
-    $routes->get('logs', 'Inventory::logs', [
-        'as' => 'inventory.logs',
-        'filter' => 'permission:view_inventory_logs'
-    ]);
-
-    // ⚙️ DataTable server-side
-    $routes->get('datatable', 'Inventory::datatable', [
-        'as' => 'inventory.datatable',
-        'filter' => 'permission:view_inventory'
-    ]);
-});
-
-/**
- * 📌 Routes untuk Modul Purchase Order
- * 
- * Middleware `auth` + `permission` untuk mengamankan tiap endpoint PO.
- */
-$routes->group('purchase-orders', ['filter' => 'auth'], function ($routes) {
-    // 📄 Lihat daftar PO
-    $routes->get('/', 'PurchaseOrder::index', [
-        'as' => 'purchase_orders.index',
-        'filter' => 'permission:view_purchase_order'
-    ]);
-
-    // ➕ Buat PO baru
-    $routes->get('create', 'PurchaseOrder::create', [
-        'as' => 'purchase_orders.create',
-        'filter' => 'permission:create_purchase_order'
-    ]);
-    $routes->post('store', 'PurchaseOrder::store', [
-        'as' => 'purchase_orders.store',
-        'filter' => 'permission:create_purchase_order'
-    ]);
-
-    // ✏️ Edit PO
-    $routes->get('edit/(:num)', 'PurchaseOrder::edit/$1', [
-        'as' => 'purchase_orders.edit',
-        'filter' => 'permission:edit_purchase_order'
-    ]);
-    $routes->post('update/(:num)', 'PurchaseOrder::update/$1', [
-        'as' => 'purchase_orders.update',
-        'filter' => 'permission:edit_purchase_order'
-    ]);
-
-    // 📥 Proses penerimaan barang dari PO
-    $routes->get('receive/(:num)', 'PurchaseOrder::receive/$1', [
-        'as' => 'purchase_orders.receive_form',
-        'filter' => 'permission:receive_purchase_order'
-    ]);
-    $routes->post('processReceive/(:num)', 'PurchaseOrder::processReceive/$1', [
-        'as' => 'purchase_orders.receive_process',
-        'filter' => 'permission:receive_purchase_order'
-    ]);
-    $routes->post('store-receive', 'PurchaseOrder::storeReceive', [
-        'as' => 'purchase_orders.store_receive',
-        'filter' => 'permission:receive_purchase_order'
-    ]);
-
-    // ❌ Hapus PO
-    $routes->post('delete/(:num)', 'PurchaseOrder::delete/$1', [
-        'as' => 'purchase_orders.delete',
-        'filter' => 'permission:delete_purchase_order'
-    ]);
-
-    // 🔍 View detail PO
-    $routes->get('view/(:num)', 'PurchaseOrder::view/$1', [
-        'as' => 'purchase_orders.view',
-        'filter' => 'permission:view_purchase_order'
-    ]);
-
-    // 🔄 Ajax data dan produk
-    $routes->post('getData', 'PurchaseOrder::getData', [
-        'as' => 'purchase_orders.get_data',
-        'filter' => 'permission:view_purchase_order'
-    ]);
-
-    $routes->post('getStatistics', 'PurchaseOrder::getStatistics', [ // 🔥 INI DIA YANG KURANG
-        'as' => 'purchase_orders.statistics',
-        'filter' => 'permission:view_purchase_order'
-    ]);
-
-    $routes->get('get_products_by_supplier/(:num)', 'PurchaseOrder::get_products_by_supplier/$1', [
-        'as' => 'purchase_orders.get_products',
-        'filter' => 'permission:view_purchase_order'
-    ]);
-});
-
-/**
- * 📌 API Routes
- * 
- * Endpoint untuk kebutuhan API.
- */
-$routes->get('api/get-product-sku/(:num)', 'PurchaseOrder::get_product_sku/$1');
-
-/**
- * 📌 Routes untuk Assign Permission ke User
- * 
- * Middleware `admin` memastikan hanya Administrator yang dapat
- * mengakses halaman ini.
- */
-$routes->group('permissions', ['filter' => 'admin'], function ($routes) {
+    $routes->get('/', 'Permission::index');
+    $routes->get('create', 'Permission::create');
+    $routes->post('store', 'Permission::store');
+    $routes->get('edit/(:num)', 'Permission::edit/$1');
+    $routes->post('update/(:num)', 'Permission::update/$1');
+    $routes->post('delete/(:num)', 'Permission::delete/$1');
+    $routes->get('roles', 'Permission::manageRoles');
+    $routes->post('roles/update', 'Permission::updateRolePermissions');
+    $routes->get('assign', 'Permission::assign');
+    $routes->post('assign_process', 'Permission::assignProcess');
     $routes->get('assign-user', 'UserPermission::index');
     $routes->post('assign-user', 'UserPermission::assign');
     $routes->get('user-permissions/(:num)', 'UserPermission::getUserPermissions/$1');
 });
 
+// ======================= ROLES =======================
+$routes->group('roles', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Role::index');
+    $routes->get('create', 'Role::create');
+    $routes->post('store', 'Role::store');
+    $routes->get('edit/(:num)', 'Role::edit/$1');
+    $routes->post('update/(:num)', 'Role::update/$1');
+    $routes->post('delete/(:num)', 'Role::delete/$1');
+});
 
-/**
- * 📦 Route: Stock Transactions (Dengan Permission)
- */
-$routes->group('stock-transactions', ['filter' => 'permission:view_inventory'], static function ($routes) {
-    /**
-     * @route GET /stock-transactions
-     * @desc Halaman utama stock transactions
-     */
+// ======================= BRANDS =======================
+$routes->group('brands', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Brand::index');
+    $routes->get('create', 'Brand::create');
+    $routes->post('store', 'Brand::store');
+    $routes->get('edit/(:num)', 'Brand::edit/$1');
+    $routes->post('update/(:num)', 'Brand::update/$1');
+    $routes->post('delete/(:num)', 'Brand::delete/$1');
+});
+
+// ======================= PRODUCTS =======================
+$routes->group('products', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Product::index');
+    $routes->get('create', 'Product::create');
+    $routes->post('store', 'Product::store');
+    $routes->get('edit/(:num)', 'Product::edit/$1');
+    $routes->post('update/(:num)', 'Product::update/$1');
+    $routes->post('delete/(:num)', 'Product::delete/$1');
+});
+
+// ======================= WAREHOUSE =======================
+$routes->group('warehouse', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Warehouse::index');
+    $routes->get('create', 'Warehouse::create');
+    $routes->post('store', 'Warehouse::store');
+    $routes->get('edit/(:num)', 'Warehouse::edit/$1');
+    $routes->post('update/(:num)', 'Warehouse::update/$1');
+    $routes->post('delete/(:num)', 'Warehouse::delete/$1');
+});
+
+// ======================= INVENTORY =======================
+$routes->group('inventory', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Inventory::index');
+    $routes->post('update-stock', 'Inventory::updateStock');
+    $routes->get('logs', 'Inventory::logs');
+    $routes->get('datatable', 'Inventory::datatable');
+});
+
+// ======================= PURCHASE ORDER =======================
+$routes->group('purchase-orders', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'PurchaseOrder::index');
+    $routes->get('create', 'PurchaseOrder::create');
+    $routes->post('store', 'PurchaseOrder::store');
+    $routes->get('edit/(:num)', 'PurchaseOrder::edit/$1');
+    $routes->post('update/(:num)', 'PurchaseOrder::update/$1');
+    $routes->get('receive/(:num)', 'PurchaseOrder::receive/$1');
+    $routes->post('processReceive/(:num)', 'PurchaseOrder::processReceive/$1');
+    $routes->post('store-receive', 'PurchaseOrder::storeReceive');
+    $routes->post('delete/(:num)', 'PurchaseOrder::delete/$1');
+    $routes->get('view/(:num)', 'PurchaseOrder::view/$1');
+    $routes->post('getData', 'PurchaseOrder::getData');
+    $routes->post('getStatistics', 'PurchaseOrder::getStatistics');
+    $routes->get('get_products_by_supplier/(:num)', 'PurchaseOrder::get_products_by_supplier/$1');
+});
+$routes->get('api/get-product-sku/(:num)', 'PurchaseOrder::get_product_sku/$1');
+
+// ======================= STOCK TRANSACTIONS =======================
+$routes->group('stock-transactions', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'StockTransaction::index');
-
-    /**
-     * @route POST /stock-transactions/get-data
-     * @desc Ambil data transaksi stok untuk DataTables
-     */
     $routes->post('get-stock-transactions', 'StockTransaction::getStockTransactions');
     $routes->post('statistics', 'StockTransaction::getStatistik');
-
 });
 
-/**
- * 📦 Marketplace Transaction Routes
- */
+// ======================= MARKETPLACE =======================
 $routes->group('marketplace-transactions', ['filter' => 'auth'], function ($routes) {
-    /**
-     * @route Menampilkan halaman berdasarkan platform
-     */
-    $routes->get('(:segment)', 'MarketplaceTransaction::index/$1');
+    $routes->get('all', 'MarketplaceTransaction::all');
+    $routes->post('get-data/all', 'MarketplaceTransaction::getDataAll');
+    $routes->post('get-statistics/all', 'MarketplaceTransaction::getStatisticsAll');
 
-    /**
-     * @route API untuk DataTables + Statistik
-     */
+    $routes->get('(:segment)', 'MarketplaceTransaction::index/$1');
     $routes->post('get-data/(:segment)', 'MarketplaceTransaction::getTransactions/$1');
     $routes->post('get-statistics/(:segment)', 'MarketplaceTransaction::getStatistics/$1');
-
-    /**
-     * @route Tambah / Simpan Transaksi
-     */
     $routes->get('create/(:segment)', 'MarketplaceTransaction::create/$1');
     $routes->post('store/(:segment)', 'MarketplaceTransaction::store/$1');
-
-    /**
-     * @route Edit & Update
-     */
     $routes->get('edit/(:segment)/(:num)', 'MarketplaceTransaction::edit/$1/$2');
     $routes->post('update/(:segment)/(:num)', 'MarketplaceTransaction::update/$1/$2');
-
-    /**
-     * @route Detail & Hapus
-     */
     $routes->get('detail/(:segment)/(:num)', 'MarketplaceTransaction::detail/$1/$2');
     $routes->post('delete/(:segment)/(:num)', 'MarketplaceTransaction::delete/$1/$2');
-
-        /**
-     * @route Import transaksi marketplace via Excel
-     */
-    $routes->post('import/(:segment)', 'MarketplaceTransaction::importExcel/$1', ['filter' => 'auth']);
-
-        /**
-     * @route Download Template Import Transaksi
-     */
-    $routes->get('template/(:segment)', 'MarketplaceTransaction::downloadTemplate/$1', ['filter' => 'auth']);
-
-    // 📄 Konfirmasi import data
+    $routes->post('import/(:segment)', 'MarketplaceTransaction::importExcel/$1');
+    $routes->get('template/(:segment)', 'MarketplaceTransaction::downloadTemplate/$1');
     $routes->get('confirm-import/(:segment)', 'MarketplaceTransaction::confirmImport/$1');
-    // 🔥 Tambahin ini laey biar bisa nyimpen hasil import!
     $routes->post('save-imported-data/(:segment)', 'MarketplaceTransaction::saveImportedData/$1');
-
     $routes->post('track-resi', 'MarketplaceTransaction::trackResi');
     $routes->post('update-resi/(:segment)/(:num)', 'MarketplaceTransaction::updateResiStatus/$1/$2');
-
 });
 
-/**
- * 📦 Forecasting Stock Routes
- */
-$routes->group('forecast', ['filter' => 'auth'], static function ($routes) {
-    /**
-     * GET /forecast
-     * 📊 Halaman utama forecast
-     */
-    $routes->get('/', 'Forecast::index', ['as' => 'forecast.index']);
-
-    /**
-     * POST /forecast/predict-single
-     * 🔮 Prediksi stok satu produk
-     */
-    $routes->post('predict-single', 'Forecast::predictSingle', ['as' => 'forecast.predictSingle']);
-
-    /**
-     * POST /forecast/predict-all
-     * 🔁 Prediksi semua produk
-     */
-    $routes->post('predict-all', 'Forecast::predictAll', ['as' => 'forecast.predictAll']);
+// ======================= FORECAST =======================
+$routes->group('forecast', ['filter' => 'auth'], function ($routes) {
+    $routes->get('/', 'Forecast::index');
+    $routes->post('predict-single', 'Forecast::predictSingle');
+    $routes->post('predict-all', 'Forecast::predictAll');
 });
 
-/**
- * 🔁 Routes untuk Soscom Transactions
- */
-$routes->group('soscom-transactions', ['filter' => 'auth'], static function ($routes) {
-    /**
-     * 📜 @var GET Halaman index
-     */
+// ======================= SOSCOM TRANSAKSI =======================
+$routes->group('soscom-transactions', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'SoscomTransaction::index');
-
-    /**
-     * 📦 @var POST Server-side datatables
-     */
     $routes->post('get-data', 'SoscomTransaction::getData');
-
-    /**
-     * 📥 @var POST Import Excel
-     */
     $routes->post('import', 'SoscomTransaction::importExcel');
-
-    /**
-     * 📄 @var GET Konfirmasi hasil import
-     */
     $routes->get('confirm-import', 'SoscomTransaction::confirmImport');
-
-    /**
-     * 💾 @var POST Simpan hasil import
-     */
     $routes->post('save-import', 'SoscomTransaction::saveImportedData');
-
-    /**
-     * 🚚 @var POST Tracking Resi
-     */
     $routes->post('track-resi', 'SoscomTransaction::trackResi');
-
-    /**
-     * 🧾 @var GET Download Template Excel
-     */
-    $routes->get('download-template', 'SoscomTransaction::downloadTemplate'); // ✅ ini yang error 404
-
+    $routes->get('download-template', 'SoscomTransaction::downloadTemplate');
     $routes->post('get-statistics', 'SoscomTransaction::getStatistics');
-
 });
 
-$routes->group('crm-transactions', ['filter' => 'auth'], static function ($routes) {
-    /**
-     * @group CRM Transactions Routes
-     */
+// ======================= CRM TRANSAKSI =======================
+$routes->group('crm-transactions', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'CrmTransaction::index');
     $routes->post('get-data', 'CrmTransaction::getData');
     $routes->post('import', 'CrmTransaction::importExcel');
@@ -634,62 +216,36 @@ $routes->group('crm-transactions', ['filter' => 'auth'], static function ($route
     $routes->get('download-template', 'CrmTransaction::downloadTemplate');
 });
 
+// ======================= REGIONAL API =======================
 $routes->group('api', ['namespace' => 'App\Controllers\Api'], function ($routes) {
-    /**
-     * 📍 Regional Data from BinderByte
-     */
     $routes->get('provinces', 'Region::provinces');
     $routes->get('cities/(:any)', 'Region::cities/$1');
     $routes->get('districts/(:any)', 'Region::districts/$1');
     $routes->get('villages/(:any)', 'Region::villages/$1');
     $routes->get('postal-code/(:segment)', 'Region::postalCode/$1');
-
 });
 
+// ======================= KODE POS =======================
 $routes->group('postalcode', ['filter' => 'auth'], function ($routes) {
-    /**
-     * @group PostalCode Management
-     * Routes untuk monitoring & update kodepos
-     */
     $routes->get('/', 'PostalCode::index');
     $routes->post('runBatch', 'PostalCode::runBatch');
     $routes->get('list', 'PostalCode::list');
     $routes->get('ajaxList', 'PostalCode::ajaxList');
 });
-
 $routes->get('postalcode/reference', 'PostalCodeReference::index');
 
-
-
-
-$routes->group('customers', ['filter' => 'auth'], function($routes) {
-    /**
-     * @api {get} Halaman utama customer
-     */
+// ======================= CUSTOMER =======================
+$routes->group('customers', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'Customer::index');
-  
-    /**
-     * @api {post} Ambil data customer
-     */
     $routes->post('data', 'Customer::getData');
-  
-    /**
-     * @api {get} Detail customer
-     */
     $routes->get('detail/(:num)', 'Customer::detail/$1');
     $routes->post('history/(:num)', 'Customer::history/$1');
     $routes->post('update/(:num)', 'Customer::update/$1');
     $routes->get('edit/(:num)', 'Customer::edit/$1');
+});
 
-
-  });
-  
-
-// 🚨 Tambahkan di dalam group route admin atau authenticated
-$routes->group('soscom-teams', ['filter' => 'auth'], function($routes) {
-    /**
-     * Route untuk CRUD Soscom Team
-     */
+// ======================= TEAM SOSCOM =======================
+$routes->group('soscom-teams', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'SoscomTeam::index');
     $routes->get('create', 'SoscomTeam::create');
     $routes->post('store', 'SoscomTeam::store');

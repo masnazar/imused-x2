@@ -49,6 +49,11 @@ Edit Brand - <?= esc($brand['brand_name']) ?>
                         <input type="text" name="brand_name" class="form-control" value="<?= esc($brand['brand_name']) ?>" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Kode Brand</label>
+                        <input type="text" name="kode_brand" class="form-control" value="<?= esc($brand['kode_brand']) ?>" required>
+                    </div>
+
                     <!-- Warna Primer -->
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Warna Primer</label>

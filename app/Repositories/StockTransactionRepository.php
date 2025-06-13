@@ -119,6 +119,7 @@ class StockTransactionRepository
                 stock_transactions.quantity,
                 stock_transactions.status,
                 stock_transactions.transaction_source,
+                stock_transactions.reference,
                 stock_transactions.created_at
             ')
             ->join('products', 'products.id = stock_transactions.product_id')

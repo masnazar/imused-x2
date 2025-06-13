@@ -19,12 +19,15 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use CodeIgniter\I18n\Time;
 use App\Models\BrandModel;
 use App\Helpers\ProductFormatter;
+use CodeIgniter\API\ResponseTrait;
+
 
 /**
  * Controller untuk modul Marketplace Transactions
  */
 class MarketplaceTransaction extends BaseController
 {
+    use ResponseTrait;
     protected MarketplaceTransactionService $service;
     protected $brandModel;
 
@@ -43,6 +46,79 @@ class MarketplaceTransaction extends BaseController
     /**
      * 📌 Menampilkan halaman transaksi marketplace
      */
+
+     /**
+ * 🔄 Menampilkan semua transaksi (tanpa filter platform)
+ */
+public function all()
+{
+    $brands = $this->brandModel->findAll();
+
+    return view('marketplace_transaction/all', [
+        'platform'     => 'all',
+        'brands'       => $brands,
+        'date_filter'  => view('partials/date_filter')
+    ]);
+}
+
+/**
+ * 📦 DataTables Server-side untuk semua transaksi
+ */
+public function getDataAll(): ResponseInterface
+{
+    try {
+        $request = service('request');
+        $params = [
+            'draw'         => $request->getPost('draw'),
+            'start'        => $request->getPost('start'),
+            'length'       => $request->getPost('length'),
+            'search'       => $request->getPost('search')['value'] ?? null,
+            'jenis_filter' => $request->getPost('jenis_filter'),
+            'periode'      => $request->getPost('periode'),
+            'start_date'   => $request->getPost('start_date'),
+            'end_date'     => $request->getPost('end_date'),
+            'brand_id'     => $request->getPost('brand_id'),
+            'platform'     => 'all'
+        ];
+
+        $data = $this->service->getPaginatedTransactionsAll($params);
+        return $this->response->setJSON($data);
+    } catch (\Throwable $e) {
+        log_message('error', '[MarketplaceTransaction::getDataAll] ' . $e->getMessage());
+        return $this->response->setJSON([
+            'error' => 'Gagal memuat data transaksi'
+        ])->setStatusCode(500);
+    }
+}
+
+
+public function getStatisticsAll()
+{
+    try {
+        $request = \Config\Services::request();
+
+        $filters = [
+            'jenis_filter' => $request->getPost('jenis_filter'),
+            'periode'      => $request->getPost('periode'),
+            'start_date'   => $request->getPost('start_date'),
+            'end_date'     => $request->getPost('end_date'),
+            'brand_id'     => $request->getPost('brand_id'),
+            'platform'     => 'all' // ⬅️ Ini penting
+        ];
+
+        $stats = $this->service->getStatisticsAll($filters);
+
+        return $this->response->setJSON(array_merge([
+            csrf_token() => csrf_hash()
+        ], $stats));
+    } catch (\Throwable $e) {
+        log_message('error', '[❌ getStatisticsAll] ' . $e->getMessage());
+        return $this->response->setJSON([
+            'error' => 'Gagal memuat statistik'
+        ])->setStatusCode(500);
+    }
+}
+
     public function index(string $platform)
 {
     $allowedPlatforms = ['shopee', 'tokopedia', 'lazada', 'tiktokshop'];
@@ -336,43 +412,61 @@ $products = array_map(function ($item) use ($transaction, $totalQty) {
  * Mengimpor file Excel dan validasi awal (group by order_number)
  */
 public function importExcel(string $platform): ResponseInterface
-{
-
-    if (!$this->request->isAJAX()) {
-        return $this->failForbidden('Akses tidak diizinkan.');
-    }
-
-    $file = $this->request->getFile('file_excel');
-
-
-    $allowedMimes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    if (!in_array($file->getMimeType(), $allowedMimes, true)) {
-        return $this->failValidationErrors(['Tipe file tidak valid']);
-    }
-
-    // Cek ekstensi & size
-    $allowedExtensions = ['xls', 'xlsx'];
-    $maxSize = 5 * 1024 * 1024; // 5MB
-    if (!in_array(strtolower($file->getExtension()), $allowedExtensions)) {
-        return $this->failValidationErrors(['Format file tidak didukung. Gunakan .xls atau .xlsx.']);
-    }
-    if ($file->getSize() > $maxSize) {
-        return $this->failValidationErrors(['Ukuran file melebihi batas maksimum 5MB.']);
-    }
-    
-
-    try {
-        $spreadsheet = IOFactory::load($file->getTempName());
-        $sheet = $spreadsheet->getActiveSheet();
-        $rows = $sheet->toArray(null, true, true, true);
-
-        if (count($rows) > 4000) {
-            return $this->failValidationErrors(['Jumlah baris melebihi batas maksimum 4000 baris.']);
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->respond([
+                'status' => 'error',
+                'message' => 'Akses tidak diizinkan.'
+            ], 403);
         }
+
+        $file = $this->request->getFile('file_excel');
+
+        $allowedMimes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        if (!in_array($file->getMimeType(), $allowedMimes, true)) {
+            return $this->respond([
+                'status' => 'error',
+                'errors' => ['Tipe file tidak valid']
+            ], 422);
+        }
+
+        $allowedExtensions = ['xls', 'xlsx'];
+        $maxSize = 5 * 1024 * 1024;
+        if (!in_array(strtolower($file->getExtension()), $allowedExtensions)) {
+            return $this->respond([
+                'status' => 'error',
+                'errors' => ['Format file tidak didukung. Gunakan .xls atau .xlsx.']
+            ], 422);
+        }
+        if ($file->getSize() > $maxSize) {
+            return $this->respond([
+                'status' => 'error',
+                'errors' => ['Ukuran file melebihi batas maksimum 5MB.']
+            ], 422);
+        }
+
+        try {
+            $spreadsheet = IOFactory::load($file->getTempName());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray(null, true, true, true);
+
+            if (count($rows) > 10000) {
+                return $this->respond([
+                    'status' => 'error',
+                    'errors' => ['Jumlah baris melebihi batas maksimum 4000 baris.']
+                ], 422);
+            }
+
+            $brandModel = new BrandModel();
+            $brands = $brandModel->findAll();
+            $brandMapByCode = [];
+            foreach ($brands as $brand) {
+                $brandMapByCode[$brand['kode_brand']] = $brand;
+            }
 
         $headerMap = [
             'A' => 'date',
-            'B' => 'brand_id',
+            'B' => 'kode_brand',
             'C' => 'order_number',
             'D' => 'tracking_number',
             'E' => 'courier_code',
@@ -449,11 +543,12 @@ public function importExcel(string $platform): ResponseInterface
             }
 
             // Validasi brand
-            $brand = $brands[$rowData['brand_id']] ?? null;
+            $brand = $brandMapByCode[$rowData['kode_brand']] ?? null;
             if (!$brand) {
-                $errorMessages[] = "Baris $rowNumber: Brand ID '{$rowData['brand_id']}' tidak ditemukan.";
+                $errorMessages[] = "Baris $rowNumber: Kode brand '{$rowData['kode_brand']}' tidak ditemukan.";
                 continue;
             }
+            $rowData['brand_id'] = $brand['id'];
 
             // Validasi produk (SKU + brand match)
             $product = $productMap[$rowData['brand_id']][$rowData['sku']] ?? null;
@@ -501,7 +596,7 @@ public function importExcel(string $platform): ResponseInterface
             // ✅ Tambahkan ke hasil akhir
             $importedData[] = [
                 'date'           => $rowData['date'],
-                'brand_id'       => $rowData['brand_id'],
+                'brand_id'       => $brand['id'],
                 'order_number'   => $rowData['order_number'],
                 'tracking_number'=> $rowData['tracking_number'],
                 'courier_id'     => $courier['id'],
@@ -541,11 +636,14 @@ public function importExcel(string $platform): ResponseInterface
             csrf_token() => csrf_hash()
         ]);
     } catch (\Throwable $e) {
-        log_message('error', '[🛑 ImportExcel Error] ' . $e->getMessage());
-        log_message('error', '[Trace] ' . $e->getTraceAsString());
+            log_message('error', '[\ud83d\udeab ImportExcel Error] ' . $e->getMessage());
+            log_message('error', '[Trace] ' . $e->getTraceAsString());
 
-        return $this->failServerError('Gagal membaca file atau terjadi kesalahan internal.');
-    }
+            return $this->respond([
+                'status' => 'error',
+                'message' => 'Gagal membaca file atau terjadi kesalahan internal.'
+            ], 500);
+        }
 }
 
     /**
@@ -562,7 +660,7 @@ public function importExcel(string $platform): ResponseInterface
 
         // Header sesuai dengan format final
         $headers = [
-            'date', 'brand_id', 'order_number', 'tracking_number',
+            'date', 'kode_brand', 'order_number', 'tracking_number',
             'courier_code', 'store_name', 'warehouse_code', 'sku',
             'quantity', 'selling_price', 'discount', 'admin_fee'
         ];
@@ -757,7 +855,7 @@ public function saveImportedData(string $platform)
                 'transaction_type' => 'Outbound',
                 'status' => 'Stock Out',
                 'transaction_source' => $data['platform'],
-                'reference' => $transactionId,
+                'reference' => $data['order_number'],
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);

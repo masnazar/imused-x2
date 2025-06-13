@@ -23,37 +23,38 @@ $menus = $menuService->getSidebarMenusForRole($userRoleId);
       </div>
       <ul class="main-menu">
         <?php foreach ($menus as $menu): ?>
-          <?php if (!empty($menu['is_section'])): ?>
-            <!-- Section Header -->
-            <li class="slide__category">
-              <span class="category-name"><?= esc($menu['name']) ?></span>
-            </li>
-          <?php elseif (empty($menu['children'])): ?>
-            <!-- Menu Tanpa Submenu -->
-            <li class="slide">
-              <a href="<?= $menu['route'] ? base_url($menu['route']) : '#' ?>" class="side-menu__item">
-                <i class="<?= esc($menu['icon']) ?> side-menu__icon"></i>
-                <span class="side-menu__label"><?= esc($menu['name']) ?></span>
-              </a>
-            </li>
-          <?php else: ?>
-            <!-- Menu Dengan Submenu -->
-            <li class="slide has-sub">
-              <a href="javascript:void(0);" class="side-menu__item">
-                <i class="<?= esc($menu['icon']) ?> side-menu__icon"></i>
-                <span class="side-menu__label"><?= esc($menu['name']) ?></span>
-                <i class="ri-arrow-down-s-line side-menu__angle"></i>
-              </a>
-              <ul class="slide-menu child1">
-                <?php foreach ($menu['children'] as $child): ?>
-                  <li class="slide">
-                    <a href="<?= base_url($child['route']) ?>" class="side-menu__item"><?= esc($child['name']) ?></a>
-                  </li>
-                <?php endforeach; ?>
-              </ul>
-            </li>
-          <?php endif; ?>
+  <?php if (!empty($menu['is_section']) && empty($menu['parent_id'])): ?>
+    <!-- Section Header -->
+    <li class="slide__category">
+      <span class="category-name"><?= esc($menu['name']) ?></span>
+    </li>
+  <?php elseif (empty($menu['children'])): ?>
+    <!-- Menu Tanpa Submenu -->
+    <li class="slide">
+      <a href="<?= $menu['route'] ? base_url($menu['route']) : '#' ?>" class="side-menu__item">
+        <i class="<?= esc($menu['icon']) ?> side-menu__icon"></i>
+        <span class="side-menu__label"><?= esc($menu['name']) ?></span>
+      </a>
+    </li>
+  <?php else: ?>
+    <!-- Menu Dengan Submenu -->
+    <li class="slide has-sub">
+      <a href="javascript:void(0);" class="side-menu__item">
+        <i class="<?= esc($menu['icon']) ?> side-menu__icon"></i>
+        <span class="side-menu__label"><?= esc($menu['name']) ?></span>
+        <i class="ri-arrow-down-s-line side-menu__angle"></i>
+      </a>
+      <ul class="slide-menu child1">
+        <?php foreach ($menu['children'] as $child): ?>
+          <li class="slide">
+            <a href="<?= base_url($child['route']) ?>" class="side-menu__item"><?= esc($child['name']) ?></a>
+          </li>
         <?php endforeach; ?>
+      </ul>
+    </li>
+  <?php endif; ?>
+<?php endforeach; ?>
+
       </ul>
       <div class="slide-right" id="slide-right">
         <svg xmlns="http://www.w3.org/2000/svg" fill="#7b8191" width="24" height="24" viewBox="0 0 24 24">

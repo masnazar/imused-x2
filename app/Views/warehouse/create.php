@@ -33,6 +33,11 @@ Tambah Warehouse
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label">Kode Gudang</label>
+                        <input type="text" name="code" class="form-control" value="<?= old('code') ?>" required>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label">Alamat</label>
                         <textarea name="address" class="form-control"><?= old('address') ?></textarea>
                     </div>
