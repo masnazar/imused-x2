@@ -22,6 +22,59 @@
 
 <?= $this->include('layouts/components/flashMessage') ?>
 
+<!-- Statistik -->
+<div class="row mb-3">
+  <div class="col-md-4">
+    <div class="card bg-primary text-white p-3 rounded shadow-sm">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h6>Total Customer</h6>
+          <h3 class="mb-0" id="stat-total">0</h3>
+        </div>
+        <i class="fas fa-users fa-2x"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-success text-white p-3 rounded shadow-sm">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h6>Total LTV</h6>
+          <h3 class="mb-0" id="stat-ltv">Rp 0</h3>
+        </div>
+        <i class="fas fa-coins fa-2x"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-3">
+  <div class="card-body row g-2 align-items-end">
+    <div class="col-md-3">
+      <label for="filter-nama">Nama</label>
+      <input type="text" id="filter-nama" class="form-control" placeholder="Cari Nama...">
+    </div>
+    <div class="col-md-3">
+      <label for="filter-wa">Nomor WA</label>
+      <input type="text" id="filter-wa" class="form-control" placeholder="08xxxx...">
+    </div>
+    <div class="col-md-3">
+      <label for="filter-kota">Kota/Kab</label>
+      <select id="filter-kota" class="form-select">
+        <option value="">Semua</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label for="filter-provinsi">Provinsi</label>
+      <select id="filter-provinsi" class="form-select">
+        <option value="">Semua</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+
 <div class="card custom-card">
   <div class="card-body table-responsive">
     <table id="customerTable" class="table table-hover table-borderless mb-0">
