@@ -89,7 +89,7 @@ class Filters extends BaseFilters
             'customers/data'
         ]],
     ],
-        'after' => [
+    'after' => [
             // 'honeypot',
             // 'secureheaders',
         ],
