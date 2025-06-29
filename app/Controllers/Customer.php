@@ -16,26 +16,72 @@ class Customer extends BaseController
     }
 
     public function getData(): ResponseInterface
-    {
-        $request = service('request');
-        $model = new CustomerModel();
+{
+    $request = service('request');
+    $model   = new CustomerModel();
 
-        $draw = $request->getPost('draw');
-        $start = $request->getPost('start');
-        $length = $request->getPost('length');
+    $draw    = (int) $request->getPost('draw');
+    $start   = (int) $request->getPost('start');
+    $length  = (int) $request->getPost('length');
 
-        $total = $model->countAll();
-        $filtered = $total;
+    // ambil filter
+    $name     = $request->getPost('name');
+    $phone    = $request->getPost('phone_number');
+    $city     = $request->getPost('city');
+    $province = $request->getPost('province');
 
-        $data = $model->orderBy('updated_at', 'DESC')->findAll($length, $start);
+    // builder DataTable
+    $builder = $model->builder();
+    if ($name)     $builder->like('name', $name);
+    if ($phone)    $builder->like('phone_number', $phone);
+    if ($city)     $builder->where('city', $city);
+    if ($province) $builder->where('province', $province);
 
-        return $this->response->setJSON([
-            'draw' => (int) $draw,
-            'recordsTotal' => $total,
-            'recordsFiltered' => $filtered,
-            'data' => $data
-        ]);
+    $recordsFiltered = $builder->countAllResults(false);
+
+    $data = $builder
+        ->orderBy('updated_at', 'DESC')
+        ->limit($length, $start)
+        ->get()
+        ->getResult();
+
+    // chart: ambil bulan & tahun untuk 6 bulan terakhir
+    $statChart = $model->builder()
+        ->select("YEAR(created_at) AS tahun, MONTH(created_at) AS bulan, COUNT(*) AS total")
+        ->where('created_at >=', date('Y-m-01', strtotime('-5 months')))
+        ->groupBy(['tahun','bulan'])
+        ->orderBy('tahun, bulan')
+        ->get()
+        ->getResult();
+
+    $monthLabels = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    $labels = [];
+    $series = [];
+
+    foreach ($statChart as $row) {
+        $idx = (int)$row->bulan - 1;
+        // gabungkan nama bulan + spasi + tahun
+        $labels[] = $monthLabels[$idx] . ' ' . $row->tahun;
+        $series[] = (int)$row->total;
     }
+
+    $stats = [
+        'total_customers' => $model->countAll(),
+        'total_ltv'       => array_sum(array_column($data, 'ltv')),
+        'chart'           => [
+            'labels' => $labels,
+            'series' => $series
+        ]
+    ];
+
+    return $this->response->setJSON([
+        'draw'            => $draw,
+        'recordsTotal'    => $model->countAll(),
+        'recordsFiltered' => $recordsFiltered,
+        'data'            => $data,
+        'stats'           => $stats
+    ]);
+}
 
     public function detail($id)
     {
@@ -172,5 +218,36 @@ private function getRegionName(string $table, string $id): ?string
         'customer' => $customer
     ]);
 }
+
+public function filters()
+{
+    $db = db_connect();
+
+    // Ambil daftar kota/kabupaten unik dari customer
+    $cityQuery = $db->table('customers')
+        ->select('city')
+        ->distinct()
+        ->where('city IS NOT NULL', null, false)
+        ->orderBy('city')
+        ->get();
+
+    $cities = array_map(fn($row) => $row->city, $cityQuery->getResult());
+
+    // Ambil daftar provinsi unik dari customer
+    $provQuery = $db->table('customers')
+        ->select('province')
+        ->distinct()
+        ->where('province IS NOT NULL', null, false)
+        ->orderBy('province')
+        ->get();
+
+    $provinces = array_map(fn($row) => $row->province, $provQuery->getResult());
+
+    return $this->response->setJSON([
+        'cities' => $cities,
+        'provinces' => $provinces
+    ]);
+}
+
 
 }

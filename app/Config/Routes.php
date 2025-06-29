@@ -239,6 +239,7 @@ $routes->group('customers', ['filter' => 'auth'], function ($routes) {
     $routes->get('/', 'Customer::index');
     $routes->post('data', 'Customer::getData');
     $routes->get('detail/(:num)', 'Customer::detail/$1');
+    $routes->get('filters', 'Customer::filters');
     $routes->post('history/(:num)', 'Customer::history/$1');
     $routes->post('update/(:num)', 'Customer::update/$1');
     $routes->get('edit/(:num)', 'Customer::edit/$1');
