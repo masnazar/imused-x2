@@ -267,3 +267,24 @@ $routes->group('chart-of-accounts', ['namespace'=>'App\Controllers'], function($
     $r->delete('delete/(:num)','ChartOfAccounts::delete/$1');
 });
 
+// ======================= EXPENSES =======================
+$routes->group('expenses', ['namespace'=>'App\Controllers'], function($routes){
+    $routes->get(   '/',             'Expenses::index');
+    $routes->post(  'get-data',     'Expenses::getData');
+    $routes->get(   'create',       'Expenses::create');
+    $routes->post(  'store',        'Expenses::store');
+    $routes->get(   'edit/(:num)',  'Expenses::edit/$1');
+    $routes->post(  'update/(:num)','Expenses::update/$1');
+    $routes->delete('delete/(:num)','Expenses::delete/$1');
+});
+
+// ======================= PLATFORMS =======================
+$routes->group('platforms', function($routes) {
+    $routes->get(   '',             'Platforms::index');
+    $routes->post(  'get-data',     'Platforms::getData');
+    $routes->get(   'create',       'Platforms::create');
+    $routes->post(  'store',        'Platforms::store');
+    $routes->get(   'edit/(:num)',  'Platforms::edit/$1');
+    $routes->post(  'update/(:num)','Platforms::update/$1');
+    $routes->delete('delete/(:num)','Platforms::delete/$1');
+});
