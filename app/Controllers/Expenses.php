@@ -20,7 +20,11 @@ class Expenses extends BaseController
      */
     public function index()
     {
-        return view('expenses/index');
+        // Render partial date_filter dan oper ke view
+        $data = [
+            'date_filter' => view('partials/date_filter'),
+        ];
+        return view('expenses/index', $data);
     }
 
     /**
@@ -28,7 +32,7 @@ class Expenses extends BaseController
      */
     public function getData(): ResponseInterface
     {
-        // Ambil semua post params (start, length, search, dll)
+        // Ambil parameter DataTables + filter periode dari AJAX
         $params = $this->request->getPost();
         $data   = $this->service->getPaginated($params);
 
@@ -44,9 +48,10 @@ class Expenses extends BaseController
     public function create()
     {
         return view('expenses/form', [
-            'mode'   => 'create',
-            'coas'   => $this->service->getAllCoa(),
-            'brands' => $this->service->getAllBrands(),
+            'mode'      => 'create',
+            'coas'      => $this->service->getAllCoa(),
+            'brands'    => $this->service->getAllBrands(),
+            'platforms' => $this->service->getAllPlatforms(),
         ]);
     }
 
@@ -55,17 +60,16 @@ class Expenses extends BaseController
      */
     public function store()
     {
-        // Valid input fields
         $input = $this->request->getPost([
             'date',
             'description',
             'account_id',
             'brand_id',
-            'type',    // Request / Debit Saldo Akun
+            'platform_id',
+            'type',
             'amount',
         ]);
-
-        // Tambahkan siapa yg memproses dari session
+        // Tambahkan user yang memproses
         $input['processed_by'] = session()->get('user_id');
 
         $this->service->create($input);
@@ -86,10 +90,11 @@ class Expenses extends BaseController
         }
 
         return view('expenses/form', [
-            'mode'    => 'edit',
-            'expense' => $exp,
-            'coas'    => $this->service->getAllCoa(),
-            'brands'  => $this->service->getAllBrands(),
+            'mode'      => 'edit',
+            'expense'   => $exp,
+            'coas'      => $this->service->getAllCoa(),
+            'brands'    => $this->service->getAllBrands(),
+            'platforms' => $this->service->getAllPlatforms(),
         ]);
     }
 
@@ -103,6 +108,7 @@ class Expenses extends BaseController
             'description',
             'account_id',
             'brand_id',
+            'platform_id',
             'type',
             'amount',
         ]);
@@ -121,10 +127,9 @@ class Expenses extends BaseController
     {
         $this->service->delete($id);
 
-        // Kembalikan CSRF token baru juga
         return $this->response->setJSON([
-            'success'      => true,
-            csrf_token()   => csrf_hash(),
+            'success'    => true,
+            csrf_token() => csrf_hash(),
         ]);
     }
 }

@@ -67,7 +67,7 @@
                     <?php foreach ($coas as $coa): ?>
                         <option
                             value="<?= $coa['id'] ?>"
-                            <?= set_select('account_id', $coa['id'], (isset($expense) && $expense['account_id']== $coa['id'])) ?>
+                            <?= set_select('account_id', $coa['id'], (isset($expense) && $expense['account_id'] == $coa['id'])) ?>
                         >
                             <?= esc($coa['code']) ?> – <?= esc($coa['name']) ?>
                         </option>
@@ -79,11 +79,11 @@
             <div class="mb-3">
                 <label for="brand_id" class="form-label">Brand (opsional)</label>
                 <select name="brand_id" id="brand_id" class="form-select">
-                    <option value="">-- Semua Brand --</option>
+                    <option value="">-- Pilih Brand --</option>
                     <?php foreach ($brands as $brand): ?>
                         <option
                             value="<?= $brand['id'] ?>"
-                            <?= set_select('brand_id', $brand['id'], (isset($expense) && $expense['brand_id']== $brand['id'])) ?>
+                            <?= set_select('brand_id', $brand['id'], (isset($expense) && $expense['brand_id'] == $brand['id'])) ?>
                         >
                             <?= esc($brand['brand_name']) ?>
                         </option>
@@ -95,11 +95,11 @@
             <div class="mb-3">
                 <label for="platform_id" class="form-label">Platform (opsional)</label>
                 <select name="platform_id" id="platform_id" class="form-select">
-                    <option value="">-- Semua Platform --</option>
+                    <option value="">-- Pilih Platform --</option>
                     <?php foreach ($platforms as $plat): ?>
                         <option
                             value="<?= $plat['id'] ?>"
-                            <?= set_select('platform_id', $plat['id'], (isset($expense) && $expense['platform_id']== $plat['id'])) ?>
+                            <?= set_select('platform_id', $plat['id'], (isset($expense) && $expense['platform_id'] == $plat['id'])) ?>
                         >
                             <?= esc($plat['code']) ?> – <?= esc($plat['name']) ?>
                         </option>
@@ -115,7 +115,7 @@
                     <?php foreach (['Request','Debit Saldo Akun'] as $t): ?>
                         <option
                             value="<?= $t ?>"
-                            <?= set_select('type', $t, (isset($expense) && $expense['type']===$t)) ?>
+                            <?= set_select('type', $t, (isset($expense) && $expense['type'] === $t)) ?>
                         >
                             <?= esc($t) ?>
                         </option>
@@ -137,7 +137,7 @@
                 >
             </div>
 
-            <!-- Tombol -->
+            <!-- Tombol Simpan / Batal -->
             <div class="d-flex justify-content-end">
                 <a href="<?= site_url('expenses') ?>" class="btn btn-light me-2">Batal</a>
                 <button type="submit" class="btn btn-primary">
