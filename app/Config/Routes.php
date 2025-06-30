@@ -254,3 +254,16 @@ $routes->group('soscom-teams', ['filter' => 'auth'], function ($routes) {
     $routes->post('update/(:num)', 'SoscomTeam::update/$1');
     $routes->get('delete/(:num)', 'SoscomTeam::delete/$1');
 });
+
+// ======================= CHART OF ACCOUNTS =======================
+// Pastikan namespace sesuai dengan controller yang digunakan
+$routes->group('chart-of-accounts', ['namespace'=>'App\Controllers'], function($r) {
+    $r->get('/',             'ChartOfAccounts::index');
+    $r->post('get-data',     'ChartOfAccounts::getData');
+    $r->get('create',        'ChartOfAccounts::create');
+    $r->post('store',        'ChartOfAccounts::store');
+    $r->get('edit/(:num)',   'ChartOfAccounts::edit/$1');
+    $r->post('update/(:num)', 'ChartOfAccounts::update/$1');
+    $r->delete('delete/(:num)','ChartOfAccounts::delete/$1');
+});
+
