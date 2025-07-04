@@ -275,7 +275,10 @@ $routes->group('expenses', ['namespace'=>'App\Controllers'], function($routes){
     $routes->post(  'store',        'Expenses::store');
     $routes->get(   'edit/(:num)',  'Expenses::edit/$1');
     $routes->post(  'update/(:num)','Expenses::update/$1');
+    $routes->post(  'get-statistics',  'Expenses::getStatistics');
     $routes->delete('delete/(:num)','Expenses::delete/$1');
+    $routes->post('analyze', 'Expenses::analyze');
+
 });
 
 // ======================= PLATFORMS =======================

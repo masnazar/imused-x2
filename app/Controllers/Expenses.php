@@ -1,18 +1,21 @@
 <?php namespace App\Controllers;
 
 use App\Services\ExpenseService;
+use App\Services\AiService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class Expenses extends BaseController
 {
     protected ExpenseService $service;
+    protected AiService      $ai;
 
     public function __construct()
     {
         // Pastikan session helper tersedia untuk ambil user_id
         helper('session');
         $this->service = new ExpenseService();
+        $this->ai  = new AiService();
     }
 
     /**
@@ -41,6 +44,42 @@ class Expenses extends BaseController
 
         return $this->response->setJSON($data);
     }
+
+   public function getStatistics(): \CodeIgniter\HTTP\ResponseInterface
+    {
+        $params = $this->request->getPost();
+        $stats  = $this->service->getStatistics($params);
+
+        // kirim token baru
+        $stats[csrf_token()] = csrf_hash();
+        return $this->response->setJSON($stats);
+    }
+
+    /**
+     * AJAX: Analisis & Insight
+     */
+    public function analyze(): ResponseInterface
+    {
+        $params = $this->request->getPost();
+
+        // ambil statistik dasar
+        $stats = $this->service->getStatistics($params);
+
+        // ambil breakdown
+        $stats['breakdown_coa']      = $this->service->getCostByCoa($params);
+        $stats['breakdown_platform'] = $this->service->getCostByPlatform($params);
+
+        // Minta AI
+        $insight = $this->ai->analyze('expenses', $stats);
+
+        // sertakan token & insight dalam response
+        $stats[csrf_token()] = csrf_hash();
+        $stats['insight']    = $insight;
+
+        return $this->response->setJSON($stats);
+    }
+
+
 
     /**
      * Form tambah expense

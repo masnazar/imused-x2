@@ -178,6 +178,30 @@ class ExpenseService
     }
 
     /**
+     * Breakdown pengeluaran per COA
+     */
+    public function getCostByCoa(array $params): array
+    {
+        return $this->repo->getCostByCoa($params);
+    }
+
+    /**
+     * Breakdown pengeluaran per Platform
+     */
+    public function getCostByPlatform(array $params): array
+    {
+        return $this->repo->getCostByPlatform($params);
+    }
+
+    /**
+     * Ambil statistik berdasarkan periode/filter
+     */
+    public function getStatistics(array $params): array
+    {
+        return $this->repo->getStatistics($params);
+    }
+
+    /**
      * Hapus pengeluaran
      *
      * @throws DataException
