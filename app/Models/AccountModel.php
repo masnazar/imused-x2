@@ -11,6 +11,7 @@ class AccountModel extends Model
         'code',
         'name',
         'type',
+        'subtype',
         'normal_balance',
         'parent_id',
         'created_at',

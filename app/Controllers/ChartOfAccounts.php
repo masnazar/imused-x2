@@ -49,7 +49,7 @@ class ChartOfAccounts extends BaseController
      */
     public function store()
     {
-        $input = $this->request->getPost(['code','name','type','normal_balance','parent_id']);
+        $input = $this->request->getPost(['code','name','type', 'subtype', 'normal_balance','parent_id']);
         $this->service->create($input);
         return redirect()->to('/chart-of-accounts')->with('success', 'Account created.');
     }
@@ -75,7 +75,7 @@ class ChartOfAccounts extends BaseController
      */
     public function update($id)
     {
-        $input = $this->request->getPost(['code','name','type','normal_balance','parent_id']);
+        $input = $this->request->getPost(['code','name','type','subtype','normal_balance','parent_id']);
         $this->service->update((int)$id, $input);
         return redirect()->to('/chart-of-accounts')->with('success', 'Account updated.');
     }
@@ -84,8 +84,12 @@ class ChartOfAccounts extends BaseController
      * Soft-delete akun via AJAX
      */
     public function delete($id)
-    {
-        $this->service->delete((int)$id);
-        return $this->response->setJSON(['success' => true]);
-    }
+{
+    $this->service->delete((int)$id);
+
+    return $this->response->setJSON([
+        csrf_token() => csrf_hash(),  // send back the rotated token
+        'success'    => true
+    ]);
+}
 }

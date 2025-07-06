@@ -1,5 +1,6 @@
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('title') ?>Chart of Accounts<?= $this->endSection() ?>
+
 <?= $this->section('content') ?>
 <?= $this->include('layouts/components/flashMessage') ?>
 
@@ -8,7 +9,9 @@
   <div>
     <nav>
       <ol class="breadcrumb mb-1">
-        <li class="breadcrumb-item"><a href="<?= base_url() ?>"><i class="fas fa-home"></i> Dashboard</a></li>
+        <li class="breadcrumb-item">
+          <a href="<?= base_url() ?>"><i class="fas fa-home"></i> Dashboard</a>
+        </li>
         <li class="breadcrumb-item active" aria-current="page">Chart of Accounts</li>
       </ol>
     </nav>
@@ -21,7 +24,7 @@
   </div>
 </div>
 
-<!-- Card Container -->
+<!-- Table Card -->
 <div class="card custom-card">
   <div class="card-header justify-content-between">
     <h5 class="card-title">Daftar Chart of Accounts</h5>
@@ -48,13 +51,18 @@
 </div>
 <?= $this->endSection() ?>
 
+
 <?= $this->section('scripts') ?>
 <script>
-const csrfName = '<?= csrf_token() ?>';
-let   csrfHash = '<?= csrf_hash() ?>';
+// --- CSRF setup ---
+const csrfName   = '<?= csrf_token() ?>';
+let   csrfHash   = '<?= csrf_hash() ?>';
+const csrfHeader = 'X-CSRF-TOKEN';
 
+// tunggu dokumen siap
 $(function(){
-  $('#coaTable').DataTable({
+  // 1) Inisialisasi DataTable
+  const table = $('#coaTable').DataTable({
     processing: true,
     serverSide: true,
     ajax: {
@@ -67,39 +75,75 @@ $(function(){
       }
     },
     columns: [
-      { data: null, orderable:false, render:(_,__,row,meta)=>
+      { data:null, orderable:false, className:'text-center',
+        render: (_,__,row,meta)=>
           meta.row + meta.settings._iDisplayStart + 1
       },
-      { data: 'code' },
-      { data: 'name' },
-      { data: 'type' },
-      { data: 'normal_balance' },
-      { data: null, render:(_,__,r)=>
+      { data:'code' },
+      { data:'name' },
+      { data:'type' },
+      { data:'normal_balance' },
+      { data:null, render: (_,__,r)=>
           r.parent_code
             ? `${r.parent_code} – ${r.parent_name}`
             : '—'
       },
-      { data: 'created_at' },
-      { data: null, orderable:false, render:(d)=>
-        `<a href="<?= site_url('chart-of-accounts/edit') ?>/${d.id}" class="btn btn-sm btn-warning me-1">
+      { data:'created_at' },
+      { data:null, orderable:false, className:'text-center',
+        render: d => `
+          <a href="<?= site_url('chart-of-accounts/edit') ?>/${d.id}" 
+             class="btn btn-sm btn-warning me-1">
             <i class="ri-edit-line"></i>
-         </a>
-         <button data-id="${d.id}" class="btn btn-sm btn-danger btn-del">
-           <i class="ri-delete-bin-5-line"></i>
-         </button>`
+          </a>
+          <button data-id="${d.id}" class="btn btn-sm btn-danger btn-del">
+            <i class="ri-delete-bin-5-line"></i>
+          </button>`
       }
     ]
   });
 
-  // delete
-  $('#coaTable').on('click','.btn-del', function(){
-    if (!confirm('Yakin hapus akun ini?')) return;
+  // 2) Delete dengan SweetAlert
+  $('#coaTable').on('click', '.btn-del', function(){
     const id = $(this).data('id');
-    $.ajax({
-      url: `<?= site_url('chart-of-accounts/delete') ?>/${id}`,
-      type: 'DELETE',
-      headers: { [csrfName]: csrfHash },
-      success: () => $('#coaTable').DataTable().ajax.reload()
+
+    Swal.fire({
+      title: 'Yakin ingin menghapus?',
+      text: 'Data akun akan dihapus secara permanen.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, hapus!',
+      cancelButtonText: 'Batal',
+      reverseButtons: true
+    }).then(result => {
+      if (!result.isConfirmed) return;
+
+      $.ajax({
+        url: `<?= site_url('chart-of-accounts/delete') ?>/${id}`,
+        type: 'DELETE',
+        headers: { [csrfHeader]: csrfHash },
+        success: res => {
+          // ambil hash baru
+          if (res[csrfName]) csrfHash = res[csrfName];
+          // reload tanpa reset paging
+          table.ajax.reload(null, false);
+
+          Swal.fire({
+            title: 'Terhapus!',
+            text: 'Akun berhasil dihapus.',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        },
+        error: (xhr, status, err) => {
+          console.error('Hapus gagal:', status, err);
+          Swal.fire({
+            title: 'Gagal',
+            text: 'Akun gagal dihapus. Silakan coba lagi.',
+            icon: 'error'
+          });
+        }
+      });
     });
   });
 });

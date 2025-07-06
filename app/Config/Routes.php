@@ -291,3 +291,18 @@ $routes->group('platforms', function($routes) {
     $routes->post(  'update/(:num)','Platforms::update/$1');
     $routes->delete('delete/(:num)','Platforms::delete/$1');
 });
+
+
+// ======================= BRAND EXPENSES =======================
+$routes->group('brand-expenses', ['namespace' => 'App\Controllers'], function($r){
+    $r->get('','BrandExpenses::index');
+    $r->post('getData','BrandExpenses::getData');
+    $r->get('create','BrandExpenses::create');
+    $r->post('store','BrandExpenses::store');
+    $r->get('edit/(:num)','BrandExpenses::edit/$1');
+    $r->post('update/(:num)','BrandExpenses::update/$1');
+    $r->delete('delete/(:num)','BrandExpenses::delete/$1');
+});
+
+
+

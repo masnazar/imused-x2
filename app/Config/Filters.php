@@ -86,6 +86,8 @@ class Filters extends BaseFilters
             'forecast/predict-single',
             'soscom-transactions/get-data',
             'customers/history/*',
+            'chart-of-accounts/delete/*',
+            'brand-expenses/get-data',
             'customers/data'
         ]],
     ],

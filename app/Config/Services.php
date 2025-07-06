@@ -65,5 +65,16 @@ public static function menu($getShared = true)
     return new \App\Services\MenuService();
 }
 
+public static function brandExpenseService($getShared = true)
+{
+    if ($getShared) {
+        return static::getSharedInstance('brandExpenseService');
+    }
+
+    return new \App\Services\BrandExpenseService(
+        new \App\Repositories\BrandExpenseRepository(new \App\Models\BrandExpenseModel()),
+        new \App\Repositories\ExpenseRepository(new \App\Models\ExpenseModel())
+    );
+}
 
 }

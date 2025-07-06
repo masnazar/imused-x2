@@ -18,7 +18,7 @@ class ChartOfAccountsRepository
     {
         return $this->db->table("{$this->table} a")
             ->select('
-                a.id, a.code, a.name, a.type, a.normal_balance,
+                a.id, a.code, a.name, a.type, a.subtype, a.normal_balance,
                 p.code AS parent_code, p.name AS parent_name,
                 a.created_at, a.updated_at
             ')
