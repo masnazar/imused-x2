@@ -14,42 +14,43 @@ class BrandExpenseRepository
     }
 
     /**
-     * Base builder + join ke brands, accounts, platforms, users
+     * Base builder + join ke accounts, brands, stores, platforms, users
      */
     protected function getBaseBuilder(): BaseBuilder
     {
         return $this->db->table("{$this->table} be")
             ->select([
                 'be.id', 'be.date', 'be.description',
-                'a.id   AS account_id', 'a.code   AS coa_code',    'a.name   AS coa_name',
-                'b.id   AS brand_id',   'b.brand_name',
-                'p.id   AS platform_id','p.code   AS platform_code','p.name   AS platform_name',
-                'be.type',
-                'be.amount',
+                'a.id   AS account_id',  'a.code   AS coa_code',    'a.name   AS coa_name',
+                'b.id   AS brand_id',    'b.brand_name',
+                's.id   AS store_id',    's.store_code',            's.store_name',
+                'p.id   AS platform_id', 'p.code   AS platform_code','p.name   AS platform_name',
+                'be.type', 'be.amount',
                 'u.id   AS processed_by','u.name   AS processed_by_name',
                 'be.created_at','be.updated_at',
             ])
             ->join('accounts  a','a.id = be.account_id','left')
             ->join('brands    b','b.id = be.brand_id','left')
+            ->join('stores    s','s.id = be.store_id','left')
             ->join('platforms p','p.id = be.platform_id','left')
             ->join('users     u','u.id = be.processed_by','left');
     }
 
     /**
-     * DataTables serverSide: getPaginated
+     * DataTables server‐side pagination + filter + search
      */
     public function getPaginated(array $params): array
     {
         helper('periode');
 
-        // 1) tanggal filter
+        // 1) filter tanggal
         $start = $end = null;
         if (($params['jenis_filter'] ?? '') === 'periode' && ! empty($params['periode'])) {
             list($start,$end) = get_date_range_from_periode($params['periode']);
         } elseif (
-            ($params['jenis_filter'] ?? '') === 'custom' &&
-            ! empty($params['start_date']) &&
-            ! empty($params['end_date'])
+            ($params['jenis_filter'] ?? '') === 'custom'
+            && ! empty($params['start_date'])
+            && ! empty($params['end_date'])
         ) {
             $start = $params['start_date'];
             $end   = $params['end_date'];
@@ -65,7 +66,8 @@ class BrandExpenseRepository
         if (! empty($params['search']['value'])) {
             $kw = trim($params['search']['value']);
             $builder->groupStart()
-                ->like('b.brand_name', $kw)
+                ->like('b.brand_name',   $kw)
+                ->orLike('s.store_name',  $kw)
                 ->orLike('a.code',        $kw)
                 ->orLike('be.description',$kw)
                 ->orLike('p.name',        $kw)
@@ -73,26 +75,24 @@ class BrandExpenseRepository
                 ->groupEnd();
         }
 
-        // 3) count filtered
+        // 3) hitung filtered
         $clone = clone $builder;
         $recordsFiltered = $clone->countAllResults(false);
 
         // 4) paging params
-        $start  = (int) ($params['start']  ?? 0);
-        $length = (int) ($params['length'] ?? 10);
+        $offset = (int) ($params['start']  ?? 0);
+        $limit  = (int) ($params['length'] ?? 10);
         $draw   = (int) ($params['draw']   ?? 1);
 
-        // 5) fetch page
+        // 5) ambil data page
         $data = $builder
             ->orderBy('be.date','DESC')
-            ->limit($length,$start)
+            ->limit($limit,$offset)
             ->get()
             ->getResultArray();
 
         // 6) total all
-        $recordsTotal = (int) $this->db
-            ->table($this->table)
-            ->countAllResults();
+        $recordsTotal = (int) $this->db->table($this->table)->countAllResults();
 
         return [
             'draw'            => $draw,
@@ -102,10 +102,13 @@ class BrandExpenseRepository
         ];
     }
 
+    /**
+     * Cari 1 record by ID
+     */
     public function find(int $id): ?array
     {
         return $this->getBaseBuilder()
-            ->where('be.id',$id)
+            ->where('be.id', $id)
             ->get()
             ->getRowArray() ?: null;
     }

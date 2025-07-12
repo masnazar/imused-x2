@@ -304,5 +304,16 @@ $routes->group('brand-expenses', ['namespace' => 'App\Controllers'], function($r
     $r->delete('delete/(:num)','BrandExpenses::delete/$1');
 });
 
+// ======================= STORES =======================
+$routes->group('stores', ['filter' => 'auth'], static function($routes){
+    $routes->get('',              'Stores::index');
+    $routes->post('get-data',     'Stores::getData');
+    $routes->get('create',        'Stores::create');
+    $routes->post('store',        'Stores::store');
+    $routes->get('edit/(:num)',   'Stores::edit/$1');
+    $routes->post('update/(:num)','Stores::update/$1');
+    $routes->delete('delete/(:num)','Stores::delete/$1');
+});
+
 
 

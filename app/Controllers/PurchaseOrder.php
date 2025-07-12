@@ -84,39 +84,32 @@ class PurchaseOrder extends Controller
     $db = \Config\Database::connect();
     $db->transStart();
 
+    
     try {
         $data = $this->request->getPost();
-        log_message('info', '🟢 Menerima data Purchase Order: ' . json_encode($data));
 
-        // Gunakan produk pertama untuk mendapatkan kode brand
+        // buat PO number dan simpan header PO
         $firstProduct = $data['products'][0]['product_id'];
         $poNumber = $this->service->generatePoNumber($firstProduct);
 
-        // Simpan Purchase Order
         $purchaseOrderData = [
             'po_number'   => $poNumber,
             'supplier_id' => $data['supplier_id'],
             'status'      => 'Pending',
         ];
-
         $purchaseOrderId = $this->service->createPurchaseOrder($purchaseOrderData);
 
-        if (!$purchaseOrderId) {
-            throw new \Exception('Gagal menyimpan Purchase Order.');
-        }
-
-        // Simpan Detail Purchase Order
-        foreach ($data['products'] as $product) {
+        // simpan detail PO, **tanpa** 'total_price'
+        foreach ($data['products'] as $item) {
             $productData = [
                 'purchase_order_id' => $purchaseOrderId,
-                'product_id'        => $product['product_id'],
-                'quantity'          => $product['quantity'],
-                'unit_price'        => $product['unit_price'],
-                'total_price'       => $product['quantity'] * $product['unit_price'],
+                'product_id'        => $item['product_id'],
+                'quantity'          => $item['quantity'],
+                'unit_price'        => $item['unit_price'],
+                // 'total_price'    => $item['quantity'] * $item['unit_price'], // HAPUS!
                 'received_quantity' => 0,
-                'remaining_quantity'=> $product['quantity'],
+                'remaining_quantity'=> $item['quantity'],
             ];
-
             $this->service->createPurchaseOrderDetail($productData);
         }
 

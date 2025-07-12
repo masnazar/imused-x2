@@ -4,6 +4,7 @@ use App\Services\BrandExpenseService;
 use App\Models\AccountModel;
 use App\Models\PlatformModel;
 use App\Models\BrandModel;
+use App\Models\StoreModel;
 use CodeIgniter\Controller;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -14,6 +15,7 @@ class BrandExpenses extends Controller
     protected AccountModel        $accountModel;
     protected PlatformModel       $platformModel;
     protected BrandModel          $brandModel;
+    protected StoreModel          $storeModel;
 
     public function __construct()
     {
@@ -22,18 +24,18 @@ class BrandExpenses extends Controller
         $this->accountModel  = new AccountModel();
         $this->platformModel = new PlatformModel();
         $this->brandModel    = new BrandModel();
+        $this->storeModel    = new StoreModel();
     }
 
-    /** daftar */
+    /** Daftar & kirim date_filter partial */
     public function index()
     {
-        $data = [
+        return view('brand_expenses/index', [
             'date_filter' => view('partials/date_filter'),
-        ];
-        return view('brand_expenses/index', $data);
+        ]);
     }
 
-    /** AJAX DataTables */
+    /** AJAX untuk DataTables */
     public function getData(): ResponseInterface
     {
         $params = $this->request->getPost();
@@ -42,15 +44,16 @@ class BrandExpenses extends Controller
         return $this->response->setJSON($res);
     }
 
-    /** Tampilkan form tambah */
+    /** Form tambah */
     public function create()
     {
         return view('brand_expenses/form', [
             'mode'         => 'create',
             'brands'       => $this->brandModel->findAll(),
+            'stores'       => $this->storeModel->findAll(),
             'coas'         => $this->accountModel->findAll(),
             'platforms'    => $this->platformModel->findAll(),
-            'brandExpense' => [], 
+            'brandExpense' => [],
         ]);
     }
 
@@ -58,7 +61,6 @@ class BrandExpenses extends Controller
     public function store()
     {
         $post = $this->request->getPost();
-        // pastikan user_id ada di session
         $post['processed_by'] = session()->get('user_id');
         $this->service->create($post);
 
@@ -66,7 +68,7 @@ class BrandExpenses extends Controller
                          ->with('success','Brand Expense berhasil disimpan.');
     }
 
-    /** Tampilkan form edit */
+    /** Form edit */
     public function edit(int $id = null)
     {
         $row = $this->service->find($id);
@@ -77,6 +79,7 @@ class BrandExpenses extends Controller
         return view('brand_expenses/form', [
             'mode'         => 'edit',
             'brands'       => $this->brandModel->findAll(),
+            'stores'       => $this->storeModel->findAll(),
             'coas'         => $this->accountModel->findAll(),
             'platforms'    => $this->platformModel->findAll(),
             'brandExpense' => $row,

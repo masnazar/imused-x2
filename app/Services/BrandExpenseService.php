@@ -2,19 +2,18 @@
 
 use App\Repositories\BrandExpenseRepository;
 use CodeIgniter\Database\Exceptions\DataException;
-use CodeIgniter\Database\ConnectionInterface;
 use Config\Database;
 
 class BrandExpenseService
 {
     protected BrandExpenseRepository $repo;
-    protected ConnectionInterface     $db;
+    protected $db;
 
     public function __construct()
     {
+        helper('session');
         $this->repo = new BrandExpenseRepository();
         $this->db   = Database::connect();
-        helper('session');
     }
 
     public function getPaginated(array $params): array
@@ -29,7 +28,7 @@ class BrandExpenseService
 
     public function create(array $data): int
     {
-        // validasi minimal
+        // validasi
         if (empty($data['date'])) {
             throw new DataException('Tanggal wajib diisi.');
         }
@@ -39,28 +38,34 @@ class BrandExpenseService
         if (empty($data['brand_id'])) {
             throw new DataException('Brand wajib dipilih.');
         }
-        if (empty($data['amount']) || ! is_numeric(str_replace('.','',$data['amount']))) {
+        if (! empty($data['store_id']) && ! is_numeric($data['store_id'])) {
+            throw new DataException('Toko tidak valid.');
+        }
+        if (empty($data['amount']) || ! is_numeric(str_replace('.','', $data['amount']))) {
             throw new DataException('Jumlah tidak valid.');
         }
 
         // bersihkan ribuan
         $data['amount'] = (float) str_replace('.','',$data['amount']);
 
-        // isi processed_by dari session
+        // processed_by
         $userId = session()->get('user_id');
         if (! $userId) {
             throw new DataException('User tidak terautentikasi.');
         }
         $data['processed_by'] = $userId;
 
+        // store_id boleh null
+        $data['store_id'] = ! empty($data['store_id']) ? (int)$data['store_id'] : null;
+
         // timestamps
         $now = date('Y-m-d H:i:s');
         $data['created_at'] = $now;
         $data['updated_at'] = $now;
 
-        // transaksi
+        // simpan
         $this->db->transStart();
-            $id = $this->repo->insert($data);
+          $id = $this->repo->insert($data);
         $this->db->transComplete();
 
         if (! $this->db->transStatus()) {
@@ -72,7 +77,7 @@ class BrandExpenseService
 
     public function update(int $id, array $data): bool
     {
-        // validasi mirip create...
+        // validasi serupa create
         if (empty($data['date'])) {
             throw new DataException('Tanggal wajib diisi.');
         }
@@ -82,16 +87,19 @@ class BrandExpenseService
         if (empty($data['brand_id'])) {
             throw new DataException('Brand wajib dipilih.');
         }
+        if (! empty($data['store_id']) && ! is_numeric($data['store_id'])) {
+            throw new DataException('Toko tidak valid.');
+        }
         if (empty($data['amount']) || ! is_numeric(str_replace('.','',$data['amount']))) {
             throw new DataException('Jumlah tidak valid.');
         }
 
-        // bersihkan
         $data['amount'] = (float) str_replace('.','',$data['amount']);
+        $data['store_id']   = ! empty($data['store_id']) ? (int)$data['store_id'] : null;
         $data['updated_at'] = date('Y-m-d H:i:s');
 
         $this->db->transStart();
-            $ok = $this->repo->update($id, $data);
+          $ok = $this->repo->update($id, $data);
         $this->db->transComplete();
 
         if (! $this->db->transStatus()) {
@@ -104,7 +112,7 @@ class BrandExpenseService
     public function delete(int $id): bool
     {
         $this->db->transStart();
-            $ok = $this->repo->delete($id);
+          $ok = $this->repo->delete($id);
         $this->db->transComplete();
 
         if (! $this->db->transStatus()) {
