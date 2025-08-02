@@ -166,13 +166,11 @@ class UserService
             return 'not_active';
         }
 
-        $userPermissions = $this->getUserPermissions($user['role_id']);
+        $rolePermissions = $this->getUserPermissions($user['role_id']);
+        $rolePermissionNames = array_column($rolePermissions, 'permission_name');
 
-        if (!empty($userPermissions) && is_array($userPermissions) && isset($userPermissions[0]) && is_array($userPermissions[0])) {
-            $userPermissions = array_map(fn($p) => (object) $p, $userPermissions);
-        }
-
-        $userPermissionNames = array_map(fn($p) => $p->permission_name, $userPermissions);
+        $userSpecificPermissions = $this->getPermissionsByUserId($user['id']);
+        $userPermissionNames = array_values(array_unique(array_merge($rolePermissionNames, $userSpecificPermissions)));
 
         $this->session->set([
             'user_id'    => $user['id'],
@@ -371,17 +369,16 @@ class UserService
     }
 
     public function getPermissionsByUserId(int $userId): array
-{
-    $repo = new \App\Repositories\UserRepository();
-    $permissions = $repo->getUserPermissions($userId);
-    return array_column($permissions, 'permission_name');
-}
+    {
+        $permissions = $this->userRepo->getUserPermissions($userId);
+        return array_column($permissions, 'permission_name');
+    }
 
-public function getRoleIdBySlug(string $slug): ?int
-{
-    $role = model('RoleModel')->where('slug', $slug)->first();
-    return $role['id'] ?? null;
-}
+    public function getRoleIdBySlug(string $slug): ?int
+    {
+        $role = model('RoleModel')->where('slug', $slug)->first();
+        return $role['id'] ?? null;
+    }
 
 
 }
