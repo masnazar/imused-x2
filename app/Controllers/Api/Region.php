@@ -41,7 +41,9 @@ class Region extends BaseController
 
     public function districts($regencyId = null)
     {
-        if (!$regencyId) return $this->failValidationError('ID kabupaten/kota tidak boleh kosong.');
+        if (!$regencyId || !is_numeric($regencyId)) {
+            return $this->failValidationError('ID kabupaten/kota tidak valid.');
+        }
 
         $model = new DistrictModel();
         return $this->respond(
@@ -51,7 +53,9 @@ class Region extends BaseController
 
     public function villages($districtId = null)
     {
-        if (!$districtId) return $this->failValidationError('ID kecamatan tidak boleh kosong.');
+        if (!$districtId || !is_numeric($districtId)) {
+            return $this->failValidationError('ID kecamatan tidak valid.');
+        }
 
         $model = new VillageModel();
         return $this->respond(
