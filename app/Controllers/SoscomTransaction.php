@@ -50,8 +50,8 @@ public function index()
     {
         try {
             $params = $this->request->getPost();
-            $data = $this->service->getPaginatedTransactions($params);
-            log_message('info', json_encode($data));
+            $data   = $this->service->getPaginatedTransactions($params);
+            log_message('debug', 'Loaded ' . count($data['data']) . ' soscom transactions');
             return $this->response->setJSON($data);
         } catch (Throwable $e) {
             log_message('error', '[SoscomTransaction::getData] ' . $e->getMessage());
@@ -195,48 +195,24 @@ $rowData['channel'] = in_array($rowData['channel'], $allowedChannels) ? $rowData
             $rowData['channel'] = strtolower(trim($rowData['channel'])) ?: 'soscom';
 
             try {
-                // Log 1: Nilai warehouse_code dari Excel
                 $warehouseCode = $rowData['warehouse_code'];
-                log_message('debug', "🔍 Baris $rowNumber: Mencari warehouse_code = '{$warehouseCode}'");
-
-                // Log 2: Dapatkan query yang di-generate oleh CI
-                $builder = $this->warehouseModel->builder();
-                $builder->where('code', $warehouseCode);
-                $query = $builder->getCompiledSelect();
-                log_message('debug', "🔧 Query: $query");
-
-                // Log 3: Eksekusi query manual untuk debugging
-                $manualQuery = "SELECT * FROM `warehouses` WHERE `code` = '{$warehouseCode}'";
-                $manualResult = $this->warehouseModel->db->query($manualQuery)->getRowArray();
-                log_message('debug', "🔎 Hasil query manual: " . json_encode($manualResult));
-
-                // Log 4: Eksekusi query via model
                 $warehouse = $this->warehouseModel->where('code', $warehouseCode)->first();
-
                 if (!$warehouse) {
-                    log_message('error', "❌ Warehouse code '{$warehouseCode}' TIDAK DITEMUKAN di database");
                     $errors[] = "Baris $rowNumber: Warehouse Code '{$warehouseCode}' tidak ditemukan.";
                     continue;
-                } else {
-                    log_message('debug', "✅ Warehouse DITEMUKAN: " . json_encode($warehouse));
                 }
-
                 $rowData['warehouse_id'] = $warehouse['id'];
 
-                $teamModel = new \App\Models\SoscomTeamModel(); // pastikan model ada
-
+                $teamModel = new \App\Models\SoscomTeamModel();
                 $team = $teamModel->where('team_code', $rowData['team_code'])->first();
                 if (!$team) {
                     $errors[] = "Baris $rowNumber: Team Code '{$rowData['team_code']}' tidak ditemukan.";
                     continue;
                 }
                 $rowData['soscom_team_id'] = $team['id'];
-
-
             } catch (\Throwable $e) {
-                log_message('error', "💥 ERROR: " . $e->getMessage());
-                log_message('error', "📜 TRACE: " . $e->getTraceAsString());
-                $errors[] = "Baris $rowNumber: Gagal validasi warehouse. Silakan cek log.";
+                log_message('error', $e->getMessage());
+                $errors[] = "Baris $rowNumber: Gagal validasi warehouse.";
                 continue;
             }
 

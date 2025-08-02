@@ -55,26 +55,26 @@ public function getPaginatedTransactions(array $params): array
         $this->db->transStart();
 
         $transactionId = $this->transactionModel->insert([
-            'date' => $data['date'],
-            'phone_number' => $data['phone_number'],
-            'customer_name' => $data['customer_name'],
-            'city' => $data['city'],
-            'province' => $data['province'],
-            'brand_id' => $data['brand_id'],
-            'total_qty' => $data['total_qty'],
-            'total_omzet' => $data['total_omzet'],
-            'hpp' => $data['hpp'],
-            'payment_method' => $data['payment_method'],
-            'cod_fee' => $data['cod_fee'],
-            'shipping_cost' => $data['shipping_cost'],
-            'total_payment' => $data['total_payment'],
-            'estimated_profit' => $data['estimated_profit'],
-            'courier_id' => $data['courier_id'],
+            'date'            => $data['date'],
+            'phone_number'    => $data['phone_number'],
+            'customer_name'   => $data['customer_name'],
+            'city'            => $data['city'],
+            'province'        => $data['province'],
+            'brand_id'        => $data['brand_id'],
+            'total_qty'       => $data['total_qty'],
+            'selling_price'   => $data['selling_price'],
+            'hpp'             => $data['hpp'],
+            'payment_method'  => $data['payment_method'],
+            'cod_fee'         => $data['cod_fee'],
+            'shipping_cost'   => $data['shipping_cost'],
+            'total_payment'   => $data['total_payment'],
+            'estimated_profit'=> $data['estimated_profit'],
+            'courier_id'      => $data['courier_id'],
             'tracking_number' => $data['tracking_number'],
-            'team_id' => $data['team_id'] ?? null,
-            'processed_by' => user_id(),
-            'created_at' => date('Y-m-d H:i:s'),
-            'channel' => $data['channel'] ?? 'soscom',
+            'soscom_team_id'  => $data['soscom_team_id'] ?? ($data['team_id'] ?? null),
+            'processed_by'    => user_id(),
+            'created_at'      => date('Y-m-d H:i:s'),
+            'channel'         => $data['channel'] ?? 'soscom',
         ]);
 
         // Update / Insert Customer
@@ -136,16 +136,16 @@ public function saveImportedData(array $importedData)
             throw new \RuntimeException("❌ Stok tidak mencukupi untuk Product ID {$row['product_id']} di Warehouse ID {$row['warehouse_id']}");
         }
 
-        $quantity = (int) $row['quantity'];
-        $unitHPP = (float) $row['hpp'];
-        $unitPrice = (float) $row['selling_price'];
-        $totalHPP = $unitHPP * $quantity;
+        $quantity   = (int) $row['quantity'];
+        $unitHPP    = (float) $row['hpp'];
+        $unitPrice  = (float) $row['selling_price'];
+        $lineTotal  = $unitPrice * $quantity;
+        $totalHPP   = $unitHPP * $quantity;
 
-        $grouped[$key]['total_qty'] += $quantity;
-        $grouped[$key]['selling_price'] += $unitPrice;
-        $grouped[$key]['hpp'] += $totalHPP;
-        $grouped[$key]['total_payment'] += $unitPrice + (float)$row['cod_fee'] + (float)$row['shipping_cost'];
-        $grouped[$key]['estimated_profit'] += $unitPrice - $unitHPP;
+        $grouped[$key]['total_qty']     += $quantity;
+        $grouped[$key]['selling_price'] += $lineTotal;
+        $grouped[$key]['hpp']           += $totalHPP;
+        $grouped[$key]['estimated_profit'] += $lineTotal - $totalHPP;
 
         $grouped[$key]['details'][] = [
             'product_id' => $row['product_id'],
@@ -160,37 +160,40 @@ public function saveImportedData(array $importedData)
     }
 
     foreach ($grouped as $transaction) {
-        $details = $transaction['details'];
-        unset($transaction['details']);
+        $details     = $transaction['details'];
+        $warehouseId = $transaction['warehouse_id'];
+        unset($transaction['details'], $transaction['warehouse_id']);
 
         if ($transaction['selling_price'] <= 0) {
             throw new \RuntimeException('❌ Harga jual tidak boleh nol.');
         }
 
+        $transaction['total_payment']   = $transaction['selling_price'] + $transaction['cod_fee'] + $transaction['shipping_cost'];
+        $transaction['estimated_profit'] = $transaction['selling_price'] - $transaction['hpp'] - $transaction['cod_fee'] - $transaction['shipping_cost'];
+
         $this->transactionModel->insert($transaction);
         $transactionId = $this->transactionModel->getInsertID();
 
         foreach ($details as $detail) {
-        $detail['transaction_id'] = $transactionId;
-        $this->soscomDetailTransactionModel->insert($detail);
+            $detail['transaction_id'] = $transactionId;
+            $this->soscomDetailTransactionModel->insert($detail);
 
-        // Update stok
-        $this->updateStock($detail['product_id'], $detail['quantity'], $transaction['warehouse_id']);
+            // Update stok
+            $this->updateStock($detail['product_id'], $detail['quantity'], $warehouseId);
 
-        // ⬇️ Masukkan stock_transactions di sini (beneran dalam loop)
-        $this->db->table('stock_transactions')->insert([
-            'warehouse_id'         => $transaction['warehouse_id'],
-            'product_id'           => $detail['product_id'],
-            'quantity'             => $detail['quantity'],
-            'transaction_type'     => 'Outbound',
-            'status'               => 'Stock Out',
-            'transaction_source'   => $transaction['channel'] ?? 'soscom',
-            'related_warehouse_id' => $transaction['warehouse_id'],
-            'reference'            => $detail['tracking_number'], // ✅ tracking number
-            'created_at'           => date('Y-m-d H:i:s')
-        ]);
-    }
-
+            // Catat pergerakan stok
+            $this->db->table('stock_transactions')->insert([
+                'warehouse_id'         => $warehouseId,
+                'product_id'           => $detail['product_id'],
+                'quantity'             => $detail['quantity'],
+                'transaction_type'     => 'Outbound',
+                'status'               => 'Stock Out',
+                'transaction_source'   => $transaction['channel'] ?? 'soscom',
+                'related_warehouse_id' => $warehouseId,
+                'reference'            => $detail['tracking_number'],
+                'created_at'           => date('Y-m-d H:i:s')
+            ]);
+        }
 
         // Update / Insert customer
         $this->upsertCustomer($transaction);
