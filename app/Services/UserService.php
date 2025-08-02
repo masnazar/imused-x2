@@ -31,6 +31,45 @@ class UserService
     }
 
     /**
+     * Retrieves SMTP configuration for email services.
+     *
+     * @return array
+     */
+    private function getEmailConfig(): array
+    {
+        $emailSetting = (object) [
+            'smtp_host'   => $this->settingService->get('email_smtp_host'),
+            'smtp_user'   => $this->settingService->get('email_smtp_user'),
+            'smtp_pass'   => $this->settingService->get('email_smtp_pass'),
+            'smtp_port'   => (int) $this->settingService->get('email_smtp_port'),
+            'smtp_crypto' => strtolower($this->settingService->get('email_smtp_crypto')),
+        ];
+
+        return [
+            'protocol'       => 'smtp',
+            'SMTPHost'       => $emailSetting->smtp_host,
+            'SMTPPort'       => $emailSetting->smtp_port,
+            'SMTPUser'       => $emailSetting->smtp_user,
+            'SMTPPass'       => $emailSetting->smtp_pass,
+            'SMTPCrypto'     => $emailSetting->smtp_crypto,
+            'mailType'       => 'html',
+            'charset'        => 'utf-8',
+            'CRLF'           => "\r\n",
+            'newline'        => "\r\n",
+            'SMTPAutoTLS'    => false,
+            'authType'       => 'LOGIN',
+            'SMTPTimeout'    => 30,
+            'SMTPOptions'    => [
+                'ssl' => [
+                    'verify_peer'      => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed'=> true,
+                ],
+            ],
+        ];
+    }
+
+    /**
      * Registers a new user.
      *
      * @param array $data User data.
@@ -62,40 +101,9 @@ class UserService
      */
     public function sendActivationEmail($email, $activationCode)
     {
-        $emailSetting = (object) [
-            'smtp_host'   => $this->settingService->get('email_smtp_host'),
-            'smtp_user'   => $this->settingService->get('email_smtp_user'),
-            'smtp_pass'   => $this->settingService->get('email_smtp_pass'),
-            'smtp_port'   => (int) $this->settingService->get('email_smtp_port'),
-            'smtp_crypto' => strtolower($this->settingService->get('email_smtp_crypto')),
-        ];
-
         $emailService = Services::email();
-
-        $emailConfig = [
-            'protocol'       => 'smtp',
-            'SMTPHost'       => $emailSetting->smtp_host,
-            'SMTPPort'       => $emailSetting->smtp_port,
-            'SMTPUser'       => $emailSetting->smtp_user,
-            'SMTPPass'       => $emailSetting->smtp_pass,
-            'SMTPCrypto'     => $emailSetting->smtp_crypto,
-            'mailType'       => 'html',
-            'charset'        => 'utf-8',
-            'CRLF'           => "\r\n",
-            'newline'        => "\r\n",
-            'SMTPAutoTLS'    => false,
-            'authType'       => 'LOGIN',
-            'SMTPTimeout'    => 30,
-            'SMTPOptions'    => [
-                'ssl' => [
-                    'verify_peer'      => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed'=> true,
-                ],
-            ],
-        ];
-
-        $emailService->initialize($emailConfig);
+        $config = $this->getEmailConfig();
+        $emailService->initialize($config);
 
         $activationLink = base_url("activate/" . urlencode($email) . "/" . $activationCode);
         $message = "
@@ -106,7 +114,7 @@ class UserService
         ";
 
         $emailService->setTo($email);
-        $emailService->setFrom($emailSetting->smtp_user, 'IMUSED-X2');
+        $emailService->setFrom($config['SMTPUser'], 'IMUSED-X2');
         $emailService->setSubject('Aktivasi Akun');
         $emailService->setMessage($message);
 
@@ -236,39 +244,9 @@ class UserService
 
         $resetLink = base_url("reset-password/$token");
 
-        $emailSetting = (object) [
-            'smtp_host'   => $this->settingService->get('email_smtp_host'),
-            'smtp_user'   => $this->settingService->get('email_smtp_user'),
-            'smtp_pass'   => $this->settingService->get('email_smtp_pass'),
-            'smtp_port'   => (int) $this->settingService->get('email_smtp_port'),
-            'smtp_crypto' => strtolower($this->settingService->get('email_smtp_crypto')),
-        ];
-
         $emailService = Services::email();
-        $emailConfig = [
-            'protocol'       => 'smtp',
-            'SMTPHost'       => $emailSetting->smtp_host,
-            'SMTPPort'       => $emailSetting->smtp_port,
-            'SMTPUser'       => $emailSetting->smtp_user,
-            'SMTPPass'       => $emailSetting->smtp_pass,
-            'SMTPCrypto'     => $emailSetting->smtp_crypto,
-            'mailType'       => 'html',
-            'charset'        => 'utf-8',
-            'CRLF'           => "\r\n",
-            'newline'        => "\r\n",
-            'SMTPAutoTLS'    => false,
-            'authType'       => 'LOGIN',
-            'SMTPTimeout'    => 30,
-            'SMTPOptions'    => [
-                'ssl' => [
-                    'verify_peer'      => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed'=> true,
-                ],
-            ],
-        ];
-
-        $emailService->initialize($emailConfig);
+        $config = $this->getEmailConfig();
+        $emailService->initialize($config);
 
         $message = "
             <p>Hai,</p>
@@ -278,7 +256,7 @@ class UserService
         ";
 
         $emailService->setTo($email);
-        $emailService->setFrom($emailSetting->smtp_user, 'IMUSED-X2');
+        $emailService->setFrom($config['SMTPUser'], 'IMUSED-X2');
         $emailService->setSubject('Reset Password');
         $emailService->setMessage($message);
 
