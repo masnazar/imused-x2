@@ -2,11 +2,11 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\InventoryService;
 use App\Repositories\InventoryRepository;
-use CodeIgniter\Controller;
 
-class Inventory extends Controller
+class Inventory extends BaseController
 {
     protected $service;
 
