@@ -154,10 +154,6 @@ public function getPaginatedTransactions(array $params): array
 
     public function getSummaryStats(array $filters = []): array
     {
-
-        if (!empty($filters['channel'])) {
-            $builder->where('channel', $filters['channel']);
-        }
         $builder = $this->db->table('soscom_transactions')
             ->select([
                 'COUNT(id) AS total_sales',
@@ -165,7 +161,11 @@ public function getPaginatedTransactions(array $params): array
                 'SUM(hpp) AS total_hpp',
                 'SUM(estimated_profit) AS total_profit'
             ]);
-    
+
+        if (!empty($filters['channel'])) {
+            $builder->where('channel', $filters['channel']);
+        }
+
         $result = $builder->get()->getRowArray();
     
         return [
@@ -182,16 +182,10 @@ public function getPaginatedTransactions(array $params): array
      */
     public function getTransactionProducts(int $transactionId): array
     {
-        return $this->db->table('soscom_transaction_details AS details')
-            ->select('
-                products.product_name,
-                products.sku,
-                details.quantity,
-                details.hpp,
-                details.unit_selling_price
-            ')
-            ->join('products', 'products.id = details.product_id', 'left')
-            ->where('details.transaction_id', $transactionId)
+        return $this->db->table('soscom_detail_transactions sdt')
+            ->select('p.nama_produk AS product_name, p.sku, sdt.quantity, sdt.hpp, sdt.unit_selling_price')
+            ->join('products p', 'p.id = sdt.product_id', 'left')
+            ->where('sdt.transaction_id', $transactionId)
             ->get()
             ->getResultArray();
     }
