@@ -1,15 +1,15 @@
 <?php namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\BrandExpenseService;
 use App\Models\AccountModel;
 use App\Models\PlatformModel;
 use App\Models\BrandModel;
 use App\Models\StoreModel;
-use CodeIgniter\Controller;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
 
-class BrandExpenses extends Controller
+class BrandExpenses extends BaseController
 {
     protected BrandExpenseService $service;
     protected AccountModel        $accountModel;

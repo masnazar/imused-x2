@@ -1,11 +1,11 @@
 <?php namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\CustomerService;
-use CodeIgniter\Controller;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
-class CustomerServices extends Controller
+class CustomerServices extends BaseController
 {
     protected CustomerService $service;
 

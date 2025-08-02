@@ -2,11 +2,11 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\WarehouseService;
 use App\Repositories\WarehouseRepository;
-use CodeIgniter\Controller;
 
-class Warehouse extends Controller
+class Warehouse extends BaseController
 {
     protected $warehouseService;
 

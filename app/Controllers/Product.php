@@ -2,13 +2,13 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\ProductService;
 use App\Repositories\ProductRepository;
-use CodeIgniter\Controller;
 use App\Models\BrandModel;
 use Exception;
 
-class Product extends Controller
+class Product extends BaseController
 {
     protected $productService;
     protected $brandModel;
