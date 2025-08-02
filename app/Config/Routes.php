@@ -315,5 +315,11 @@ $routes->group('stores', ['filter' => 'auth'], static function($routes){
     $routes->delete('delete/(:num)','Stores::delete/$1');
 });
 
-
+$routes->get(   'customer-services',           'CustomerServices::index');
+$routes->post(  'customer-services/get-data',  'CustomerServices::getData');
+$routes->get(   'customer-services/create',    'CustomerServices::create');
+$routes->post(  'customer-services/store',     'CustomerServices::store');
+$routes->get(   'customer-services/edit/(:num)','CustomerServices::edit/$1');
+$routes->post(  'customer-services/update/(:num)','CustomerServices::update/$1');
+$routes->delete('customer-services/delete/(:num)','CustomerServices::delete/$1');
 

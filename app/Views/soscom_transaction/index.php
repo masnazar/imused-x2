@@ -96,7 +96,7 @@
           <th class="text-end">Estimasi Profit</th>
           <th>Tracking</th>
           <th>Kurir</th>
-          <th>Team</th>
+          <th>Advertiser</th>
           <th>Channel</th>
           <th class="text-nowrap">Info & Petugas</th>
         </tr>
