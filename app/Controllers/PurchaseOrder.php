@@ -2,16 +2,16 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\PurchaseOrderService;
 use App\Repositories\PurchaseOrderRepository;
-use CodeIgniter\Controller;
 use App\Models\SupplierModel;
 use App\Models\ProductModel;
 use App\Services\InventoryService;
 use App\Repositories\InventoryRepository;
 
 
-class PurchaseOrder extends Controller
+class PurchaseOrder extends BaseController
 {
     protected $service;
     protected $supplierModel;

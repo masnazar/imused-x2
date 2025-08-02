@@ -2,12 +2,12 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\PermissionModel;
-use CodeIgniter\Controller;
 use App\Repositories\PermissionRepository;
 
-class UserPermission extends Controller
+class UserPermission extends BaseController
 {
     protected $db;
     protected $userModel;

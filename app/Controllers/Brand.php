@@ -2,15 +2,15 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\BrandService;
 use App\Repositories\BrandRepository;
-use CodeIgniter\Controller;
 use App\Models\SupplierModel;
 
 /**
  * Controller untuk mengelola data Brand
  */
-class Brand extends Controller
+class Brand extends BaseController
 {
     protected $brandService;
     protected $supplierModel;

@@ -2,13 +2,13 @@
 
 namespace App\Controllers;
 
+use App\Controllers\BaseController;
 use App\Services\UserService;
-use CodeIgniter\Controller;
 
 /**
  * Controller untuk autentikasi pengguna.
  */
-class Auth extends Controller
+class Auth extends BaseController
 {
     /**
      * @var UserService $userService Instance dari UserService.
