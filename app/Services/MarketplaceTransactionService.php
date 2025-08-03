@@ -234,6 +234,10 @@ class MarketplaceTransactionService
     // 🔨 Base builder utama (platform dapat berupa nama platform atau 'all')
     $builder = $this->repo->getBaseQuery($params['platform']);
 
+    // 🧮 Hitung seluruh data sebelum filter apapun diterapkan
+    $builderTotal  = clone $builder;
+    $recordsTotal  = $builderTotal->countAllResults();
+
     // 🎯 Filter by Brand
     if (!empty($params['brand_id'])) {
         $builder->where('transactions.brand_id', $params['brand_id']);
@@ -291,7 +295,7 @@ class MarketplaceTransactionService
 
     return [
         'draw'            => intval($params['draw']),
-        'recordsTotal'    => $recordsFiltered, // ✅ Bisa ganti ini kalau mau beda
+        'recordsTotal'    => $recordsTotal,
         'recordsFiltered' => $recordsFiltered,
         'data'            => $data
     ];
