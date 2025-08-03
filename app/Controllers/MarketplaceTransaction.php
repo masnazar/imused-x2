@@ -138,38 +138,6 @@ public function getStatisticsAll()
 }
 
 
-    /**
-     * 📦 Server-side untuk datatables transaksi
-     */
-    public function getData(string $platform)
-    {
-        try {
-            $request = \Config\Services::request();
-    
-            $params = [
-                'draw'         => $request->getPost('draw'),
-                'start'        => $request->getPost('start'),
-                'length'       => $request->getPost('length'),
-                'search'       => $request->getPost('search')['value'] ?? null,
-                'jenis_filter' => $request->getPost('jenis_filter'),
-                'periode'      => $request->getPost('periode'),
-                'start_date'   => $request->getPost('start_date'),
-                'end_date'     => $request->getPost('end_date'),
-                'brand_id'     => $request->getPost('brand_id'),
-                'platform'     => $platform
-            ];
-    
-            // 🎯 Panggil service dengan param lengkap (termasuk filter)
-            $data = $this->service->getPaginatedTransactions($params);
-    
-            return $this->response->setJSON($data);
-        } catch (\Exception $e) {
-            log_message('error', '❌ Error getData(): ' . $e->getMessage());
-            return $this->response->setJSON([
-                'error' => 'Gagal memuat data transaksi'
-            ])->setStatusCode(500);
-        }
-    }
     
 
     /**
