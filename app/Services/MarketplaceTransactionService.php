@@ -219,22 +219,6 @@ class MarketplaceTransactionService
 }
 
 
-    private function applyDateFilter($builder, array $params)
-{
-    if ($params['jenis_filter'] === 'periode' && !empty($params['periode'])) {
-        [$start, $end] = get_date_range_from_periode($params['periode']);
-        if ($start && $end) {
-            $builder->where('transactions.date >=', $start);
-            $builder->where('transactions.date <=', $end);
-        }
-    } elseif ($params['jenis_filter'] === 'custom' && !empty($params['start_date']) && !empty($params['end_date'])) {
-        $builder->where('transactions.date >=', $params['start_date']);
-        $builder->where('transactions.date <=', $params['end_date']);
-    }
-    
-    return $builder;
-}
-
     /**
      * 🧩 Format Produk ke HTML
      */
