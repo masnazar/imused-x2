@@ -848,6 +848,60 @@ public function saveImportedData(string $platform)
         ->with('success', 'Data berhasil diimpor dan disimpan.');
 }
 
+    /**
+     * 🔄 Update status resi secara manual
+     */
+    public function updateResiStatus(string $platform, int $id): ResponseInterface
+    {
+        try {
+            $request = service('request');
+
+            // 📥 Ambil input dan validasi
+            $rules = [
+                'status' => 'required|string|in_list[Processed,Dalam Perjalanan,Terkirim,Returned]'
+            ];
+
+            if (!$this->validate($rules)) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'errors' => $this->validator->getErrors(),
+                    csrf_token() => csrf_hash()
+                ])->setStatusCode(422);
+            }
+
+            $status = $request->getPost('status');
+
+            // 💾 Update ke database melalui model
+            $model = new MarketplaceTransactionModel();
+            $model->where(['id' => $id, 'platform' => $platform])
+                  ->set([
+                      'status' => $status,
+                      'last_tracking_status' => strtoupper($status)
+                  ])
+                  ->update();
+
+            LogTrailHelper::log('update', 'Mengubah status resi transaksi', [
+                'platform' => $platform,
+                'id'       => $id,
+                'status'   => $status
+            ]);
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'Status resi berhasil diperbarui.',
+                csrf_token() => csrf_hash()
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', '[MarketplaceTransaction::updateResiStatus] ' . $e->getMessage());
+
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Gagal memperbarui status resi.',
+                csrf_token() => csrf_hash()
+            ])->setStatusCode(500);
+        }
+    }
+
 public function trackResi()
 {
     $request = service('request');
