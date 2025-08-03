@@ -718,6 +718,11 @@ public function saveImportedData(string $platform)
     $inventoryModel = new InventoryModel();
     $productModel = new ProductModel();
 
+    // Preload products referenced in imported data
+    $productIds = array_unique(array_column($importedData, 'product_id'));
+    $products = $productModel->whereIn('id', $productIds)->findAll();
+    $productMap = array_column($products, null, 'id');
+
     $db = db_connect();
     $stockLog = $db->table('stock_transactions');
 
@@ -780,35 +785,37 @@ public function saveImportedData(string $platform)
 
             $detailModel->insert($detail);
 
+            $product = $productMap[$detail['product_id']] ?? null;
+
             // 🔻 Update Inventory
             $inventory = $inventoryModel
                 ->where('warehouse_id', $data['warehouse_id'])
                 ->where('product_id', $detail['product_id'])
                 ->first();
 
-                if ($inventory) {
-                    $currentStock = $inventory['stock'];
-                    $qty = $detail['quantity'];
-                
-                    if ($currentStock < $qty) {
-                        $db->transRollback();
-                        return redirect()->back()->with('error', "Stok tidak mencukupi untuk produk {$product['product_name']} di gudang {$data['warehouse_id']}. Tersedia: $currentStock, diminta: $qty.");
-                    }
-                
-                    $inventoryModel->update($inventory['id'], [
-                        'stock' => $currentStock - $qty,
-                        'updated_at' => date('Y-m-d H:i:s')
-                    ]);
+            if ($inventory) {
+                $currentStock = $inventory['stock'];
+                $qty = $detail['quantity'];
+
+                if ($currentStock < $qty) {
+                    $db->transRollback();
+                    $productName = $product['product_name'] ?? $detail['product_id'];
+                    return redirect()->back()->with('error', "Stok tidak mencukupi untuk produk {$productName} di gudang {$data['warehouse_id']}. Tersedia: $currentStock, diminta: $qty.");
                 }
 
+                $inventoryModel->update($inventory['id'], [
+                    'stock' => $currentStock - $qty,
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+            }
+
             // 🔻 Update Product Stock
-            $product = $productModel->find($detail['product_id']);
             if ($product) {
                 $newStock = $product['stock'] - $detail['quantity'];
                 $totalStockValue = $newStock * $product['hpp'];
 
                 $productModel->update($product['id'], [
-                    'stock' => $product['stock'] - $detail['quantity'],
+                    'stock' => $newStock,
                     'hpp' => $product['hpp'], // ⬅️ Tambahkan ini!
                     'updated_at' => date('Y-m-d H:i:s')
                 ]);
