@@ -29,17 +29,102 @@ class MarketplaceTransactionService
     }
 
     /**
+     * 🧹 Sanitize incoming input
+     */
+    public function sanitizeInput(array $input, string $platform): array
+    {
+        $allowed = [
+            'order_number',
+            'date',
+            'brand_id',
+            'selling_price',
+            'hpp',
+            'discount',
+            'admin_fee',
+            'tracking_number',
+            'store_name',
+            'status',
+        ];
+
+        $sanitized = [];
+
+        foreach ($allowed as $field) {
+            if (!array_key_exists($field, $input)) {
+                continue;
+            }
+
+            $value = $input[$field];
+
+            switch ($field) {
+                case 'date':
+                    $sanitized[$field] = date('Y-m-d', strtotime((string) $value));
+                    break;
+                case 'brand_id':
+                    $sanitized[$field] = (int) $value;
+                    break;
+                case 'selling_price':
+                case 'hpp':
+                case 'discount':
+                case 'admin_fee':
+                    $sanitized[$field] = (float) $value;
+                    break;
+                default:
+                    $sanitized[$field] = is_string($value) ? esc($value) : $value;
+            }
+        }
+
+        // Default numeric values
+        $sanitized['discount']  = $sanitized['discount'] ?? 0.0;
+        $sanitized['admin_fee'] = $sanitized['admin_fee'] ?? 0.0;
+
+        return $sanitized;
+    }
+
+    /**
      * ✅ Rules Validasi
      */
-    public function getValidationRules(): array
+    public function getValidationRules(string $platform): array
     {
-        return [
+        $rules = [
             'order_number'  => 'required|string|max_length[100]',
             'date'          => 'required|valid_date',
             'brand_id'      => 'required|numeric',
             'selling_price' => 'required|decimal',
             'hpp'           => 'required|decimal',
+            'discount'      => 'permit_empty|decimal',
+            'admin_fee'     => 'permit_empty|decimal',
         ];
+
+        // Saat ini semua platform menggunakan rules yang sama
+        return $rules;
+    }
+
+    /**
+     * 🔒 Metadata aman untuk logging
+     */
+    public function getSafeMetadata(array $input): array
+    {
+        $fields = [
+            'order_number',
+            'brand_id',
+            'selling_price',
+            'hpp',
+            'discount',
+            'admin_fee',
+        ];
+
+        $metadata = [];
+
+        foreach ($fields as $field) {
+            if (!array_key_exists($field, $input)) {
+                continue;
+            }
+
+            $value = $input[$field];
+            $metadata[$field] = is_string($value) ? esc($value) : $value;
+        }
+
+        return $metadata;
     }
 
     /**
