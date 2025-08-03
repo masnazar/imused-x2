@@ -911,6 +911,14 @@ public function trackResi()
 
     $apiKey = env('BINDERBYTE_API_KEY'); // pastikan sudah diset di .env
 
+    if (empty($apiKey)) {
+        log_message('error', '[MarketplaceTransaction::trackResi] BINDERBYTE_API_KEY is missing');
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => 'API key Binderbyte tidak ditemukan.'
+        ])->setStatusCode(500);
+    }
+
     $url = "https://api.binderbyte.com/v1/track?api_key={$apiKey}&courier={$courier}&awb={$awb}";
 
     try {
