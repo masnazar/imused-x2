@@ -31,15 +31,39 @@ class MarketplaceTransactionService
     /**
      * ✅ Rules Validasi
      */
-    public function getValidationRules(): array
+    public function getValidationRules(?string $platform = null): array
     {
-        return [
+        $rules = [
             'order_number'  => 'required|string|max_length[100]',
             'date'          => 'required|valid_date',
             'brand_id'      => 'required|numeric',
             'selling_price' => 'required|decimal',
             'hpp'           => 'required|decimal',
         ];
+
+        if (! empty($platform)) {
+            $platform = strtolower($platform);
+            $platformRules = [
+                'shopee' => [
+                    'tracking_number' => 'required|string|max_length[100]',
+                ],
+                'tokopedia' => [
+                    'tracking_number' => 'required|string|max_length[100]',
+                ],
+                'lazada' => [
+                    'tracking_number' => 'required|string|max_length[100]',
+                ],
+                'tiktokshop' => [
+                    'tracking_number' => 'required|string|max_length[100]',
+                ],
+            ];
+
+            if (isset($platformRules[$platform])) {
+                $rules = array_merge($rules, $platformRules[$platform]);
+            }
+        }
+
+        return $rules;
     }
 
     /**
