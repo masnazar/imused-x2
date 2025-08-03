@@ -92,118 +92,185 @@ public function getPaginatedTransactions(array $params): array
  */
 public function saveImportedData(array $importedData)
 {
-    $this->db->transStart();
+        $this->db->transStart();
 
-    $grouped = [];
+        $grouped        = [];
+        $requiredStocks = [];
+        $productIds     = [];
 
-    foreach ($importedData as $row) {
-        $key = $row['phone_number'] . '||' . $row['tracking_number'];
+        foreach ($importedData as $row) {
+            $key = $row['phone_number'] . '||' . $row['tracking_number'];
 
-        if (!isset($grouped[$key])) {
-            $grouped[$key] = [
-                'date' => $row['date'],
-                'phone_number' => $row['phone_number'],
-                'customer_name' => $row['customer_name'],
-                'city' => $row['city'],
-                'province' => $row['province'],
-                'brand_id' => $row['brand_id'],
-                'total_qty' => 0,
-                'selling_price' => 0,
-                'hpp' => 0,
-                'payment_method' => $row['payment_method'],
-                'cod_fee' => (float) ($row['cod_fee'] ?? 0),
-                'shipping_cost' => (float) ($row['shipping_cost'] ?? 0),
-                'total_payment' => 0,
-                'estimated_profit' => 0,
-                'courier_id' => $row['courier_id'],
-                'tracking_number' => $row['tracking_number'],
-                'warehouse_id' => $row['warehouse_id'] ?? 1,
-                'soscom_team_id' => $row['soscom_team_id'] ?? null,
-                'processed_by' => user_id(),
-                'created_at' => date('Y-m-d H:i:s'),
-                'channel' => $row['channel'] ?? 'soscom',
-                'details' => []
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'date'          => $row['date'],
+                    'phone_number'  => $row['phone_number'],
+                    'customer_name' => $row['customer_name'],
+                    'city'          => $row['city'],
+                    'province'      => $row['province'],
+                    'brand_id'      => $row['brand_id'],
+                    'total_qty'     => 0,
+                    'selling_price' => 0,
+                    'hpp'           => 0,
+                    'payment_method'=> $row['payment_method'],
+                    'cod_fee'       => (float) ($row['cod_fee'] ?? 0),
+                    'shipping_cost' => (float) ($row['shipping_cost'] ?? 0),
+                    'total_payment' => 0,
+                    'estimated_profit' => 0,
+                    'courier_id'    => $row['courier_id'],
+                    'tracking_number'=> $row['tracking_number'],
+                    'warehouse_id'  => $row['warehouse_id'] ?? 1,
+                    'soscom_team_id'=> $row['soscom_team_id'] ?? null,
+                    'processed_by'  => user_id(),
+                    'created_at'    => date('Y-m-d H:i:s'),
+                    'channel'       => $row['channel'] ?? 'soscom',
+                    'details'       => [],
+                ];
+            }
+
+            $quantity   = (int) $row['quantity'];
+            $unitHPP    = (float) $row['hpp'];
+            $unitPrice  = (float) $row['selling_price'];
+            $lineTotal  = $unitPrice * $quantity;
+            $totalHPP   = $unitHPP * $quantity;
+
+            $grouped[$key]['total_qty']       += $quantity;
+            $grouped[$key]['selling_price']   += $lineTotal;
+            $grouped[$key]['hpp']             += $totalHPP;
+            $grouped[$key]['estimated_profit'] += $lineTotal - $totalHPP;
+
+            $grouped[$key]['details'][] = [
+                'product_id'         => $row['product_id'],
+                'quantity'           => $quantity,
+                'hpp'                => $unitHPP,
+                'total_hpp'          => $totalHPP,
+                'unit_selling_price' => $unitPrice,
+                'tracking_number'    => $row['tracking_number'],
+                'created_at'         => date('Y-m-d H:i:s'),
+                'updated_at'         => date('Y-m-d H:i:s'),
             ];
+
+            $productIds[$row['product_id']] = true;
+            $stockKey = ($row['warehouse_id'] ?? 1) . ':' . $row['product_id'];
+            $requiredStocks[$stockKey] = ($requiredStocks[$stockKey] ?? 0) + $quantity;
         }
 
-        // Validasi stok
-        $inventory = $this->inventoryModel
-            ->where('product_id', $row['product_id'])
-            ->where('warehouse_id', $row['warehouse_id'])
-            ->first();
+        // Ambil data produk dan stok per warehouse, gunakan lock untuk hindari race condition
+        $productRows = $this->productModel->builder()
+            ->select('id, stock, hpp')
+            ->whereIn('id', array_keys($productIds))
+            ->forUpdate()
+            ->get()
+            ->getResultArray();
+        $productMap = array_column($productRows, null, 'id');
 
-        if (!$inventory || $inventory['stock'] < (int)$row['quantity']) {
-            throw new \RuntimeException("❌ Stok tidak mencukupi untuk Product ID {$row['product_id']} di Warehouse ID {$row['warehouse_id']}");
+        $inventoryMap      = [];
+        $warehouseProducts = [];
+        foreach ($requiredStocks as $key => $qty) {
+            [$warehouseId, $productId] = explode(':', $key);
+            $warehouseProducts[$warehouseId][] = $productId;
         }
 
-        $quantity   = (int) $row['quantity'];
-        $unitHPP    = (float) $row['hpp'];
-        $unitPrice  = (float) $row['selling_price'];
-        $lineTotal  = $unitPrice * $quantity;
-        $totalHPP   = $unitHPP * $quantity;
+        foreach ($warehouseProducts as $warehouseId => $pids) {
+            $rows = $this->inventoryModel->builder()
+                ->select('id, product_id, stock')
+                ->where('warehouse_id', $warehouseId)
+                ->whereIn('product_id', array_unique($pids))
+                ->forUpdate()
+                ->get()
+                ->getResultArray();
 
-        $grouped[$key]['total_qty']     += $quantity;
-        $grouped[$key]['selling_price'] += $lineTotal;
-        $grouped[$key]['hpp']           += $totalHPP;
-        $grouped[$key]['estimated_profit'] += $lineTotal - $totalHPP;
-
-        $grouped[$key]['details'][] = [
-            'product_id' => $row['product_id'],
-            'quantity' => $quantity,
-            'hpp' => $unitHPP,
-            'total_hpp' => $totalHPP,
-            'unit_selling_price' => $unitPrice,
-            'tracking_number' => $row['tracking_number'],
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-    }
-
-    foreach ($grouped as $transaction) {
-        $details     = $transaction['details'];
-        $warehouseId = $transaction['warehouse_id'];
-        unset($transaction['details'], $transaction['warehouse_id']);
-
-        if ($transaction['selling_price'] <= 0) {
-            throw new \RuntimeException('❌ Harga jual tidak boleh nol.');
+            foreach ($rows as $row) {
+                $inventoryMap[$warehouseId . ':' . $row['product_id']] = $row;
+            }
         }
 
-        $transaction['total_payment']   = $transaction['selling_price'] + $transaction['cod_fee'] + $transaction['shipping_cost'];
-        $transaction['estimated_profit'] = $transaction['selling_price'] - $transaction['hpp'] - $transaction['cod_fee'] - $transaction['shipping_cost'];
-
-        $this->transactionModel->insert($transaction);
-        $transactionId = $this->transactionModel->getInsertID();
-
-        foreach ($details as $detail) {
-            $detail['transaction_id'] = $transactionId;
-            $this->soscomDetailTransactionModel->insert($detail);
-
-            // Update stok
-            $this->updateStock($detail['product_id'], $detail['quantity'], $warehouseId);
-
-            // Catat pergerakan stok
-            $this->db->table('stock_transactions')->insert([
-                'warehouse_id'         => $warehouseId,
-                'product_id'           => $detail['product_id'],
-                'quantity'             => $detail['quantity'],
-                'transaction_type'     => 'Outbound',
-                'status'               => 'Stock Out',
-                'transaction_source'   => $transaction['channel'] ?? 'soscom',
-                'related_warehouse_id' => $warehouseId,
-                'reference'            => $detail['tracking_number'],
-                'created_at'           => date('Y-m-d H:i:s')
-            ]);
+        foreach ($requiredStocks as $key => $qty) {
+            if (!isset($inventoryMap[$key]) || $inventoryMap[$key]['stock'] < $qty) {
+                [$warehouseId, $productId] = explode(':', $key);
+                throw new \RuntimeException("❌ Stok tidak mencukupi untuk Product ID $productId di Warehouse ID $warehouseId");
+            }
         }
 
-        // Update / Insert customer
-        $this->upsertCustomer($transaction);
-    }
+        $detailBatch     = [];
+        $productUpdates  = [];
+        $inventoryUpdates = [];
+        $stockLogs       = [];
 
-    $this->db->transComplete();
+        foreach ($grouped as $transaction) {
+            $details     = $transaction['details'];
+            $warehouseId = $transaction['warehouse_id'];
+            unset($transaction['details'], $transaction['warehouse_id']);
 
-    if (!$this->db->transStatus()) {
-        throw new DataException('❌ Gagal menyimpan data import.');
-    }
+            if ($transaction['selling_price'] <= 0) {
+                throw new \RuntimeException('❌ Harga jual tidak boleh nol.');
+            }
+
+            $transaction['total_payment']    = $transaction['selling_price'] + $transaction['cod_fee'] + $transaction['shipping_cost'];
+            $transaction['estimated_profit'] = $transaction['selling_price'] - $transaction['hpp'] - $transaction['cod_fee'] - $transaction['shipping_cost'];
+
+            $this->transactionModel->insert($transaction);
+            $transactionId = $this->transactionModel->getInsertID();
+
+            foreach ($details as $detail) {
+                $detail['transaction_id'] = $transactionId;
+                $detailBatch[]            = $detail;
+
+                // Update stok global
+                $prod                     = $productMap[$detail['product_id']];
+                $prod['stock']           -= $detail['quantity'];
+                $prod['total_nilai_stok'] = $prod['stock'] * $prod['hpp'];
+                $prod['updated_at']       = date('Y-m-d H:i:s');
+                $productMap[$detail['product_id']] = $prod;
+                $productUpdates[$prod['id']]       = $prod;
+
+                // Update stok per warehouse
+                $invKey                    = $warehouseId . ':' . $detail['product_id'];
+                $inv                       = $inventoryMap[$invKey];
+                $inv['stock']             -= $detail['quantity'];
+                $inv['updated_at']         = date('Y-m-d H:i:s');
+                $inventoryMap[$invKey]     = $inv;
+                $inventoryUpdates[$inv['id']] = $inv;
+
+                // Catat pergerakan stok
+                $stockLogs[] = [
+                    'warehouse_id'         => $warehouseId,
+                    'product_id'           => $detail['product_id'],
+                    'quantity'             => $detail['quantity'],
+                    'transaction_type'     => 'Outbound',
+                    'status'               => 'Stock Out',
+                    'transaction_source'   => $transaction['channel'] ?? 'soscom',
+                    'related_warehouse_id' => $warehouseId,
+                    'reference'            => $detail['tracking_number'],
+                    'created_at'           => date('Y-m-d H:i:s'),
+                ];
+            }
+
+            // Update / Insert customer
+            $this->upsertCustomer($transaction);
+        }
+
+        if ($detailBatch) {
+            $this->soscomDetailTransactionModel->insertBatch($detailBatch);
+        }
+
+        if ($productUpdates) {
+            $this->productModel->updateBatch(array_values($productUpdates), 'id');
+        }
+
+        if ($inventoryUpdates) {
+            $this->inventoryModel->updateBatch(array_values($inventoryUpdates), 'id');
+        }
+
+        if ($stockLogs) {
+            $this->db->table('stock_transactions')->insertBatch($stockLogs);
+        }
+
+        $this->db->transComplete();
+
+        if (!$this->db->transStatus()) {
+            throw new DataException('❌ Gagal menyimpan data import.');
+        }
 }
 
     /**
