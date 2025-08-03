@@ -9,6 +9,7 @@ use App\Models\SupplierModel;
 use App\Models\ProductModel;
 use App\Services\InventoryService;
 use App\Repositories\InventoryRepository;
+use App\Helpers\ProductFormatter;
 
 
 class PurchaseOrder extends BaseController
@@ -180,6 +181,10 @@ public function getData()
         $params = $this->request->getPost(); // ✅ Harus POST
 
         $data = $this->service->getDataTable($params); // ⬅️ Pastikan ini DIKIRIM ke service
+
+        foreach ($data['data'] as &$row) {
+            $row['products'] = ProductFormatter::format($row['products']);
+        }
 
         return $this->response->setJSON(array_merge([
             csrf_token() => csrf_hash()

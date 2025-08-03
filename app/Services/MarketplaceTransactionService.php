@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Repositories\MarketplaceTransactionRepository;
-use App\Helpers\ProductFormatter;
 
 /**
  * Service Layer untuk Marketplace Transaction
@@ -201,12 +200,8 @@ class MarketplaceTransactionService
     foreach ($data as &$row) {
         $products = $this->repo->getTransactionProducts($row['id']);
 
-        $productStrings = array_map(function ($p) {
-            return "{$p['sku']}::{$p['nama_produk']}::{$p['quantity']}::{$p['hpp']}::{$p['unit_selling_price']}";
-        }, $products);
+        $row['products'] = $products;
 
-        $row['products'] = $this->formatProducts(implode('||', $productStrings));
-        
         $row['processed_by'] = $row['processed_by_name'] ?? '-';
     }
 
@@ -234,39 +229,6 @@ class MarketplaceTransactionService
     
     return $builder;
 }
-
-    /**
-     * 🧩 Format Produk ke HTML
-     */
-    public function formatProducts(string $products): string
-    {
-        if (empty($products)) return "-";
-
-        $productsArray = explode('||', $products);
-        $productDetails = [];
-
-        foreach ($productsArray as $productString) {
-            $parts = explode('::', $productString);
-            if (count($parts) >= 5) {
-                [$sku, $nama, $qty, , $unitPrice] = $parts;
-                $sku        = esc($sku);
-                $nama       = esc($nama);
-                $qty        = (int) $qty;
-                $unitPrice  = (float) $unitPrice;
-
-                $productDetails[] = "<div class='d-flex align-items-center mb-2'>
-                    <div class='flex-grow-1'>
-                        <div class='fw-medium'>{$nama}</div>
-                        <small class='text-muted'>" . number_format($qty, 0, ',', '.') . " pcs × Rp " . number_format($unitPrice, 0, ',', '.') . "</small>
-                    </div>
-                    <span class='badge bg-light text-muted border ms-2'>{$sku}</span>
-                </div>";
-            }
-        }
-
-        return implode('', $productDetails);
-    }
-
     // 📁 app/Services/MarketplaceTransactionService.php
 
 public function getPaginatedTransactionsAll(array $params): array
@@ -285,11 +247,7 @@ public function getPaginatedTransactionsAll(array $params): array
         foreach ($data as &$row) {
             $products = $this->repo->getTransactionProducts($row['id']);
 
-            $productStrings = array_map(function ($p) {
-                return "{$p['sku']}::{$p['nama_produk']}::{$p['quantity']}::{$p['hpp']}::{$p['unit_selling_price']}";
-            }, $products);
-
-            $row['products'] = $this->formatProducts(implode('||', $productStrings));
+            $row['products'] = $products;
             $row['processed_by'] = $row['processed_by_name'] ?? '-';
         }
 

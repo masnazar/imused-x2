@@ -82,6 +82,11 @@ public function getDataAll(): ResponseInterface
         ];
 
         $data = $this->service->getPaginatedTransactionsAll($params);
+
+        foreach ($data['data'] as &$row) {
+            $row['products'] = ProductFormatter::format($row['products']);
+        }
+
         return $this->response->setJSON($data);
     } catch (\Throwable $e) {
         log_message('error', '[MarketplaceTransaction::getDataAll] ' . $e->getMessage());
@@ -161,7 +166,11 @@ public function getStatisticsAll()
     
             // 🎯 Panggil service dengan param lengkap (termasuk filter)
             $data = $this->service->getPaginatedTransactions($params);
-    
+
+            foreach ($data['data'] as &$row) {
+                $row['products'] = ProductFormatter::format($row['products']);
+            }
+
             return $this->response->setJSON($data);
         } catch (\Exception $e) {
             log_message('error', '❌ Error getData(): ' . $e->getMessage());

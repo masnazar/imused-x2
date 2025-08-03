@@ -378,14 +378,14 @@ public function getDataTable(array $params): array
     log_message('debug', '🎯 FILTER PARAMS: ' . json_encode($filters));
 
 
-    // Format datanya (termasuk produk)
-    $formattedData = array_map(function ($row) {
+    // Ubah data produk menjadi array mentah
+    $rawData = array_map(function ($row) {
         return [
             'id'            => $row['id'],
             'po_number'     => $row['po_number'],
             'supplier_name' => $row['supplier_name'] ?? 'N/A',
             'status'        => $row['status'] ?? 'Pending',
-            'products'      => $this->formatProducts($row['products'] ?? ''),
+            'products'      => $this->parseProducts($row['products'] ?? ''),
             'created_at'    => $row['created_at']
         ];
     }, $data ?? []);
@@ -394,7 +394,7 @@ public function getDataTable(array $params): array
         'draw'            => intval($params['draw'] ?? 1),
         'recordsTotal'    => $totalRecords,
         'recordsFiltered' => $filteredRecords,
-        'data'            => $formattedData
+        'data'            => $rawData
     ];
 }
 
@@ -405,32 +405,25 @@ public function getDataTable(array $params): array
  * @param string $products
  * @return string
  */
-public function formatProducts(string $products): string
+private function parseProducts(string $products): array
 {
-    if (empty($products)) return "-";
+    if (empty($products)) return [];
 
     $productsArray = explode('||', $products);
-    $productDetails = [];
+    $result = [];
 
     foreach ($productsArray as $productString) {
         $parts = explode('::', $productString);
         if (count($parts) >= 4) {
-            // Format angka
-            $quantity = number_format($parts[2], 0, ',', '.') . ' pcs';
-            $price = 'Rp ' . number_format($parts[3], 0, ',', '.');
-
-            $productDetails[] = "<div class='d-flex align-items-center mb-2'>
-                <div class='flex-grow-1'>
-                    <div class='fw-medium'>{$parts[1]}</div>
-                    <small class='text-muted'>{$quantity} × {$price}</small>
-                </div>
-                <span class='badge bg-light text-muted border ms-2'>{$parts[0]}</span>
-            </div>";
+            $result[] = [
+                'sku'          => $parts[0],
+                'nama_produk'  => $parts[1],
+                'quantity'     => (int) $parts[2],
+                'unit_price'   => (float) $parts[3],
+            ];
         }
     }
 
-    return !empty($productDetails) 
-        ? implode('', $productDetails) 
-        : "-";
+    return $result;
 }
 }
