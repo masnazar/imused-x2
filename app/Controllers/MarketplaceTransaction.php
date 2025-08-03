@@ -259,7 +259,7 @@ public function store(string $platform): ResponseInterface
         }
         
         // 3. Strict Content Type
-        if (!$this->request->hasHeader('Content-Type', 'application/x-www-form-urlencoded')) {
+        if ($this->request->getHeaderLine('Content-Type') !== 'application/x-www-form-urlencoded') {
             return $this->failUnsupportedMediaType();
         }
 
@@ -276,11 +276,12 @@ public function store(string $platform): ResponseInterface
         }
 
         // 6. Database Transaction
-        db_connect()->transStart();
-        
+        $db = db_connect();
+        $db->transStart();
+
         try {
             $id = $this->service->createTransaction($platform, $filteredInput);
-            
+
             // 7. Secure Logging
             LogTrailHelper::log(
                 'create',
@@ -292,10 +293,10 @@ public function store(string $platform): ResponseInterface
                 ],
                 'low' // Sensitivity level
             );
-            
-            db_connect()->transCommit();
+
+            $db->transCommit();
         } catch (\Throwable $e) {
-            db_connect()->transRollback();
+            $db->transRollback();
             throw $e;
         }
 
