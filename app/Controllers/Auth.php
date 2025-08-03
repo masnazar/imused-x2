@@ -146,10 +146,6 @@ class Auth extends BaseController
             return redirect()->back()->with('error', 'Email atau password salah.');
         }
 
-        // ✅ Baru aman dipanggil di sini
-        $permissions = $this->userService->getPermissionsByUserId($login['id']);
-        session()->set('user_permissions', $permissions);
-
         return redirect()->to('/')->with('success', 'Login berhasil!');
     }
 
