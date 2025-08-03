@@ -233,6 +233,7 @@ class MarketplaceTransactionService
 
     // 🔨 Base builder utama (platform dapat berupa nama platform atau 'all')
     $builder = $this->repo->getBaseQuery($params['platform']);
+    $builderTotal = $this->repo->getBaseQuery($params['platform']);
 
     // 🎯 Filter by Brand
     if (!empty($params['brand_id'])) {
@@ -266,6 +267,9 @@ class MarketplaceTransactionService
         log_message('debug', '🔎 Keyword: ' . $params['search']);
     }
 
+    // 📊 Hitung total tanpa filter pencarian
+    $recordsTotal = $builderTotal->countAllResults();
+
     // 📊 Hitung jumlah filtered (harus di-clone setelah semua where selesai)
     $builderFiltered = clone $builder;
     $recordsFiltered = $builderFiltered->countAllResults();
@@ -291,7 +295,7 @@ class MarketplaceTransactionService
 
     return [
         'draw'            => intval($params['draw']),
-        'recordsTotal'    => $recordsFiltered, // ✅ Bisa ganti ini kalau mau beda
+        'recordsTotal'    => $recordsTotal,
         'recordsFiltered' => $recordsFiltered,
         'data'            => $data
     ];
@@ -346,20 +350,29 @@ class MarketplaceTransactionService
         return implode('', $productDetails);
     }
 
-public function getStatisticsAll(array $filters): array
-{
-    try {
-        return $this->repo->getSummaryStats($filters, 'all');
-    } catch (\Throwable $e) {
-        log_message('error', '[MarketplaceTransactionService::getStatisticsAll] ' . $e->getMessage());
-        return [
-            'total_sales'    => 0,
-            'total_omzet'    => 0,
-            'total_expenses' => 0,
-            'gross_profit'   => 0
-        ];
+    /**
+     * 🔄 Update status resi transaksi
+     */
+    public function updateResiStatus(int $id, string $status): bool
+    {
+        $model = model('App\\Models\\MarketplaceTransactionModel');
+        return $model->update($id, ['status' => $status]);
     }
-}
+
+    public function getStatisticsAll(array $filters): array
+    {
+        try {
+            return $this->repo->getSummaryStats($filters, 'all');
+        } catch (\Throwable $e) {
+            log_message('error', '[MarketplaceTransactionService::getStatisticsAll] ' . $e->getMessage());
+            return [
+                'total_sales'    => 0,
+                'total_omzet'    => 0,
+                'total_expenses' => 0,
+                'gross_profit'   => 0
+            ];
+        }
+    }
 
 
 }

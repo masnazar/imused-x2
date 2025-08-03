@@ -225,8 +225,8 @@ public function store(string $platform): ResponseInterface
             return $this->failMethodNotAllowed();
         }
         
-        // 3. Strict Content Type
-        if ($this->request->getHeaderLine('Content-Type') !== 'application/x-www-form-urlencoded') {
+        // 3. Content Type check (allow variations like charset)
+        if (strpos($this->request->getHeaderLine('Content-Type'), 'application/x-www-form-urlencoded') === false) {
             return $this->failUnsupportedMediaType();
         }
 
@@ -377,6 +377,36 @@ $products = array_map(function ($item) use ($transaction, $totalQty) {
     }
 
     /**
+     * 📦 Perbarui status resi secara manual
+     */
+    public function updateResiStatus(string $platform, int $id): ResponseInterface
+    {
+        try {
+            $status = trim((string) $this->request->getPost('status'));
+
+            if ($status === '') {
+                return $this->failValidationErrors(['status' => 'Status tidak boleh kosong.']);
+            }
+
+            $this->service->updateResiStatus($id, $status);
+
+            LogTrailHelper::log('update', 'Memperbarui status resi', [
+                'platform' => $platform,
+                'id'       => $id,
+                'status'   => $status,
+            ]);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Status resi berhasil diperbarui.'
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', '[MarketplaceTransaction::updateResiStatus] ' . $e->getMessage());
+            return $this->failServerError('Gagal memperbarui status resi.');
+        }
+    }
+
+    /**
  * Mengimpor file Excel dan validasi awal (group by order_number)
  */
 public function importExcel(string $platform): ResponseInterface
@@ -418,7 +448,7 @@ public function importExcel(string $platform): ResponseInterface
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, true);
 
-            if (count($rows) > 10000) {
+            if (count($rows) > 4000) {
                 return $this->respond([
                     'status' => 'error',
                     'errors' => ['Jumlah baris melebihi batas maksimum 4000 baris.']
@@ -854,7 +884,15 @@ public function trackResi()
     $courier = $request->getPost('courier');
     $awb     = $request->getPost('awb');
 
-    $apiKey = env('BINDERBYTE_API_KEY'); // pastikan sudah diset di .env
+    $apiKey = env('BINDERBYTE_API_KEY');
+    if (empty($apiKey)) {
+        log_message('error', '[MarketplaceTransaction::trackResi] BINDERBYTE_API_KEY missing');
+        return $this->response->setJSON([
+            'status' => 'error',
+            'message' => 'Kunci API tidak tersedia.',
+            csrf_token() => csrf_hash(),
+        ])->setStatusCode(500);
+    }
 
     $url = "https://api.binderbyte.com/v1/track?api_key={$apiKey}&courier={$courier}&awb={$awb}";
 
