@@ -98,12 +98,9 @@ class Autoload extends AutoloadConfig
      */
     public $helpers = [
         'auth', // Tambahkan ini
-    'form',
-    'url',
-    'period',
-    'date',
-    'logtrail',
-    'periode',
-    'role'
+        'form',
+        'url',
+        'period',
+        'date',
     ];
 }
