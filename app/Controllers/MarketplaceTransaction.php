@@ -15,6 +15,8 @@ use App\Models\MarketplaceTransactionModel;
 use App\Models\MarketplaceDetailTransactionModel;
 use App\Models\InventoryModel;
 use App\Models\ProductModel;
+use App\Models\WarehouseModel;
+use App\Models\CourierModel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use CodeIgniter\I18n\Time;
 use App\Models\BrandModel;
@@ -29,7 +31,13 @@ class MarketplaceTransaction extends BaseController
 {
     use ResponseTrait;
     protected MarketplaceTransactionService $service;
-    protected $brandModel;
+    protected BrandModel $brandModel;
+    protected ProductModel $productModel;
+    protected WarehouseModel $warehouseModel;
+    protected CourierModel $courierModel;
+    protected InventoryModel $inventoryModel;
+    protected MarketplaceTransactionModel $transactionModel;
+    protected MarketplaceDetailTransactionModel $detailModel;
 
     /**
      * Dependency Injection dari Service Layer
@@ -38,6 +46,12 @@ class MarketplaceTransaction extends BaseController
     {
         $this->service = service('MarketplaceTransactionService');
         $this->brandModel = new BrandModel();
+        $this->productModel = new ProductModel();
+        $this->warehouseModel = new WarehouseModel();
+        $this->courierModel = new CourierModel();
+        $this->inventoryModel = new InventoryModel();
+        $this->transactionModel = new MarketplaceTransactionModel();
+        $this->detailModel = new MarketplaceDetailTransactionModel();
     }
 
     /**
@@ -450,15 +464,14 @@ public function importExcel(string $platform): ResponseInterface
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, true);
 
-            if (count($rows) > 10000) {
+            if (count($rows) > 4000) {
                 return $this->respond([
                     'status' => 'error',
                     'errors' => ['Jumlah baris melebihi batas maksimum 4000 baris.']
                 ], 422);
             }
-
-            $brandModel = new BrandModel();
-            $brands = $brandModel->findAll();
+            // Mapping brand berdasarkan kode
+            $brands = $this->brandModel->findAll();
             $brandMapByCode = [];
             foreach ($brands as $brand) {
                 $brandMapByCode[$brand['kode_brand']] = $brand;
@@ -479,31 +492,23 @@ public function importExcel(string $platform): ResponseInterface
             'L' => 'admin_fee'
         ];
 
-        // Load semua model
-        $brandModel       = new BrandModel();
-        $productModel     = new ProductModel();
-        $warehouseModel   = new \App\Models\WarehouseModel();
-        $courierModel     = new \App\Models\CourierModel();
-        $inventoryModel   = new InventoryModel();
-        $transactionModel = new MarketplaceTransactionModel();
-
         $errorMessages = [];
         $importedData = [];
 
         // Buat mapping brand, gudang, kurir
-        $brands      = array_column($brandModel->findAll(), null, 'id');
-        $warehouses  = array_column($warehouseModel->findAll(), null, 'code');
-        $couriers    = array_column($courierModel->findAll(), null, 'courier_code');
+        $brands      = array_column($brands, null, 'id');
+        $warehouses  = array_column($this->warehouseModel->findAll(), null, 'code');
+        $couriers    = array_column($this->courierModel->findAll(), null, 'courier_code');
 
         // Ambil semua product sekali aja
-        $allProducts = $productModel->findAll();
+        $allProducts = $this->productModel->findAll();
         $productMap = [];
         foreach ($allProducts as $p) {
             $productMap[$p['brand_id']][$p['sku']] = $p;
         }
 
         // Ambil transaksi yang sudah ada (untuk cek duplikat)
-        $existingTransactions = $transactionModel
+        $existingTransactions = $this->transactionModel
             ->select('order_number, tracking_number')
             ->findAll();
         $existingSet = [];
@@ -587,7 +592,7 @@ public function importExcel(string $platform): ResponseInterface
             }
 
             // Cek stok
-            $stock = $inventoryModel->getStock($warehouse['id'], $product['id']);
+            $stock = $this->inventoryModel->getStock($warehouse['id'], $product['id']);
             if ($stock === null || $stock < (int)$rowData['quantity']) {
                 $errorMessages[] = "Baris $rowNumber: Stok tidak mencukupi untuk SKU '{$rowData['sku']}'.";
                 continue;
@@ -705,17 +710,11 @@ public function confirmImport(string $platform)
                          ->with('error', 'Tidak ada data untuk dikonfirmasi.');
     }
 
-    // 🔄 Ambil model
-    $brandModel     = model('App\Models\BrandModel');
-    $productModel   = model('App\Models\ProductModel');
-    $warehouseModel = model('App\Models\WarehouseModel');
-    $courierModel   = model('App\Models\CourierModel');
-
     // 🔍 Ambil semua referensi
-    $brands     = array_column($brandModel->findAll(), null, 'id');
-    $products   = array_column($productModel->findAll(), null, 'id');
-    $warehouses = array_column($warehouseModel->findAll(), null, 'id');
-    $couriers   = array_column($courierModel->findAll(), null, 'id');
+    $brands     = array_column($this->brandModel->findAll(), null, 'id');
+    $products   = array_column($this->productModel->findAll(), null, 'id');
+    $warehouses = array_column($this->warehouseModel->findAll(), null, 'id');
+    $couriers   = array_column($this->courierModel->findAll(), null, 'id');
 
     // 🧩 Lengkapi data untuk ditampilin
     $displayData = array_map(function ($item) use ($brands, $products, $warehouses, $couriers) {
@@ -743,12 +742,6 @@ public function saveImportedData(string $platform)
     if (empty($importedData)) {
         return redirect()->back()->with('error', 'Tidak ada data untuk disimpan.');
     }
-
-    // ✅ Panggil model dengan benar
-    $transactionModel = new MarketplaceTransactionModel();
-    $detailModel = new MarketplaceDetailTransactionModel();
-    $inventoryModel = new InventoryModel();
-    $productModel = new ProductModel();
 
     $db = db_connect();
     $stockLog = $db->table('stock_transactions');
@@ -803,17 +796,17 @@ public function saveImportedData(string $platform)
         $data['created_at'] = $data['updated_at'] = date('Y-m-d H:i:s');
 
         // ⛳ Simpan ke transaksi utama
-        $transactionModel->insert($data);
-        $transactionId = $transactionModel->getInsertID();
+        $this->transactionModel->insert($data);
+        $transactionId = $this->transactionModel->getInsertID();
 
         foreach ($data['details'] as $detail) {
             $detail['transaction_id'] = $transactionId;
             $detail['created_at'] = $detail['updated_at'] = date('Y-m-d H:i:s');
 
-            $detailModel->insert($detail);
+            $this->detailModel->insert($detail);
 
             // 🔻 Update Inventory
-            $inventory = $inventoryModel
+            $inventory = $this->inventoryModel
                 ->where('warehouse_id', $data['warehouse_id'])
                 ->where('product_id', $detail['product_id'])
                 ->first();
@@ -827,19 +820,19 @@ public function saveImportedData(string $platform)
                         return redirect()->back()->with('error', "Stok tidak mencukupi untuk produk {$product['product_name']} di gudang {$data['warehouse_id']}. Tersedia: $currentStock, diminta: $qty.");
                     }
                 
-                    $inventoryModel->update($inventory['id'], [
+                    $this->inventoryModel->update($inventory['id'], [
                         'stock' => $currentStock - $qty,
                         'updated_at' => date('Y-m-d H:i:s')
                     ]);
                 }
 
             // 🔻 Update Product Stock
-            $product = $productModel->find($detail['product_id']);
+            $product = $this->productModel->find($detail['product_id']);
             if ($product) {
                 $newStock = $product['stock'] - $detail['quantity'];
                 $totalStockValue = $newStock * $product['hpp'];
 
-                $productModel->update($product['id'], [
+                $this->productModel->update($product['id'], [
                     'stock' => $product['stock'] - $detail['quantity'],
                     'hpp' => $product['hpp'], // ⬅️ Tambahkan ini!
                     'updated_at' => date('Y-m-d H:i:s')
@@ -914,21 +907,18 @@ public function trackResi()
             'courier' => $courier
         ]));
 
-        $model = new \App\Models\MarketplaceTransactionModel();
+        $this->transactionModel
+            ->where('tracking_number', $awb)
+            ->orWhere('tracking_number', strtoupper($awb))
+            ->orWhere('tracking_number', strtolower($awb))
+            ->set([
+                'status'               => $newStatus,
+                'last_tracking_data'   => json_encode($result['data']),
+                'last_tracking_status' => strtoupper($summary['status'] ?? '-')
+            ])
+            ->update();
 
-        $model->where('tracking_number', $awb)
-      ->orWhere('tracking_number', strtoupper($awb))
-      ->orWhere('tracking_number', strtolower($awb))
-      ->set([
-          'status'               => $newStatus,
-          'last_tracking_data'   => json_encode($result['data']),
-          'last_tracking_status' => strtoupper($summary['status'] ?? '-')
-      ])
-      ->update();
-
-
-
-      log_message('debug', '[🛠️ TRACKING UPDATE] Baris yang diupdate: ' . $model->db->affectedRows());
+      log_message('debug', '[🛠️ TRACKING UPDATE] Baris yang diupdate: ' . $this->transactionModel->db->affectedRows());
 
       log_message('debug', '🔗 Request URL: ' . $url);
         
