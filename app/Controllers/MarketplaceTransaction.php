@@ -80,7 +80,7 @@ public function getDataAll(): ResponseInterface
             'platform'     => 'all'
         ];
 
-        $data = $this->service->getPaginatedTransactionsAll($params);
+        $data = $this->service->getPaginatedTransactions($params);
         return $this->response->setJSON($data);
     } catch (\Throwable $e) {
         log_message('error', '[MarketplaceTransaction::getDataAll] ' . $e->getMessage());
