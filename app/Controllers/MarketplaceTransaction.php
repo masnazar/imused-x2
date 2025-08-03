@@ -61,64 +61,9 @@ public function all()
     ]);
 }
 
-/**
- * 📦 DataTables Server-side untuk semua transaksi
- */
-public function getDataAll(): ResponseInterface
-{
-    try {
-        $request = service('request');
-        $params = [
-            'draw'         => $request->getPost('draw'),
-            'start'        => $request->getPost('start'),
-            'length'       => $request->getPost('length'),
-            'search'       => $request->getPost('search')['value'] ?? null,
-            'jenis_filter' => $request->getPost('jenis_filter'),
-            'periode'      => $request->getPost('periode'),
-            'start_date'   => $request->getPost('start_date'),
-            'end_date'     => $request->getPost('end_date'),
-            'brand_id'     => $request->getPost('brand_id'),
-            'platform'     => 'all'
-        ];
-
-        $data = $this->service->getPaginatedTransactionsAll($params);
-        return $this->response->setJSON($data);
-    } catch (\Throwable $e) {
-        log_message('error', '[MarketplaceTransaction::getDataAll] ' . $e->getMessage());
-        return $this->response->setJSON([
-            'error' => 'Gagal memuat data transaksi'
-        ])->setStatusCode(500);
-    }
-}
-
-
-public function getStatisticsAll()
-{
-    try {
-        $request = \Config\Services::request();
-
-        $filters = [
-            'jenis_filter' => $request->getPost('jenis_filter'),
-            'periode'      => $request->getPost('periode'),
-            'start_date'   => $request->getPost('start_date'),
-            'end_date'     => $request->getPost('end_date'),
-            'brand_id'     => $request->getPost('brand_id'),
-            'platform'     => 'all' // ⬅️ Ini penting
-        ];
-
-        $stats = $this->service->getStatisticsAll($filters);
-
-        return $this->response->setJSON(array_merge([
-            csrf_token() => csrf_hash()
-        ], $stats));
-    } catch (\Throwable $e) {
-        log_message('error', '[❌ getStatisticsAll] ' . $e->getMessage());
-        return $this->response->setJSON([
-            'error' => 'Gagal memuat statistik'
-        ])->setStatusCode(500);
-    }
-}
-
+    /**
+     * Halaman index transaksi per platform
+     */
     public function index(string $platform)
 {
     $allowedPlatforms = ['shopee', 'tokopedia', 'lazada', 'tiktokshop'];
@@ -139,41 +84,7 @@ public function getStatisticsAll()
 
 
     /**
-     * 📦 Server-side untuk datatables transaksi
-     */
-    public function getData(string $platform)
-    {
-        try {
-            $request = \Config\Services::request();
-    
-            $params = [
-                'draw'         => $request->getPost('draw'),
-                'start'        => $request->getPost('start'),
-                'length'       => $request->getPost('length'),
-                'search'       => $request->getPost('search')['value'] ?? null,
-                'jenis_filter' => $request->getPost('jenis_filter'),
-                'periode'      => $request->getPost('periode'),
-                'start_date'   => $request->getPost('start_date'),
-                'end_date'     => $request->getPost('end_date'),
-                'brand_id'     => $request->getPost('brand_id'),
-                'platform'     => $platform
-            ];
-    
-            // 🎯 Panggil service dengan param lengkap (termasuk filter)
-            $data = $this->service->getPaginatedTransactions($params);
-    
-            return $this->response->setJSON($data);
-        } catch (\Exception $e) {
-            log_message('error', '❌ Error getData(): ' . $e->getMessage());
-            return $this->response->setJSON([
-                'error' => 'Gagal memuat data transaksi'
-            ])->setStatusCode(500);
-        }
-    }
-    
-
-    /**
-     * 📊 Statistik transaksi
+     * 📊 Statistik transaksi (platform bisa "all")
      */
     public function getStatistics(string $platform)
 {
@@ -186,18 +97,18 @@ public function getStatisticsAll()
             'start_date'   => $request->getPost('start_date'),
             'end_date'     => $request->getPost('end_date'),
             'brand_id'     => $request->getPost('brand_id'),
-            'platform'     => $platform
+            'platform'     => $platform,
         ];
 
         $stats = $this->service->getStatistics($filters);
 
         return $this->response->setJSON(array_merge([
-            csrf_token() => csrf_hash()
+            csrf_token() => csrf_hash(),
         ], $stats));
     } catch (\Exception $e) {
         log_message('error', '❌ Error getStatistics(): ' . $e->getMessage());
         return $this->response->setJSON([
-            'error' => 'Gagal memuat statistik'
+            'error' => 'Gagal memuat statistik',
         ])->setStatusCode(500);
     }
 }
@@ -205,16 +116,15 @@ public function getStatisticsAll()
 
 
     /**
-     * API DataTables Server-side
+     * 📦 DataTables server-side endpoint utama.
+     *
+     * Menangani seluruh platform termasuk "all" sehingga
+     * menggantikan metode getData dan getDataAll sebelumnya.
      */
     public function getTransactions(string $platform): ResponseInterface
 {
     try {
         $request = \Config\Services::request();
-
-         // ✅ Tambahin ini
-         $start = null;
-         $end = null;
 
         $params = [
             'draw'         => $request->getPost('draw'),
@@ -226,16 +136,17 @@ public function getStatisticsAll()
             'start_date'   => $request->getPost('start_date'),
             'end_date'     => $request->getPost('end_date'),
             'brand_id'     => $request->getPost('brand_id'),
-            'platform'     => $platform
+            'platform'     => $platform,
         ];
 
-        // ✅ Pakai yang ini!
         $data = $this->service->getPaginatedTransactions($params);
 
         return $this->response->setJSON($data);
     } catch (Throwable $e) {
         log_message('error', '[MarketplaceTransaction::getTransactions] ' . $e->getMessage());
-        return $this->response->setJSON(['error' => 'Terjadi kesalahan saat memuat data.'])->setStatusCode(500);
+        return $this->response->setJSON([
+            'error' => 'Terjadi kesalahan saat memuat data.',
+        ])->setStatusCode(500);
     }
 }
 

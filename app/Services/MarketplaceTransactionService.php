@@ -310,20 +310,4 @@ public function getPaginatedTransactionsAll(array $params): array
     }
 }
 
-public function getStatisticsAll(array $filters): array
-{
-    try {
-        return $this->repo->getSummaryStats($filters, 'all');
-    } catch (\Throwable $e) {
-        log_message('error', '[MarketplaceTransactionService::getStatisticsAll] ' . $e->getMessage());
-        return [
-            'total_sales'    => 0,
-            'total_omzet'    => 0,
-            'total_expenses' => 0,
-            'gross_profit'   => 0
-        ];
-    }
-}
-
-
 }

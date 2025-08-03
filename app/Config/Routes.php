@@ -166,9 +166,8 @@ $routes->group('stock-transactions', ['filter' => 'auth'], function ($routes) {
 // ======================= MARKETPLACE =======================
 $routes->group('marketplace-transactions', ['filter' => 'auth'], function ($routes) {
     $routes->get('all', 'MarketplaceTransaction::all');
-    $routes->post('get-data/all', 'MarketplaceTransaction::getDataAll');
-    $routes->post('get-statistics/all', 'MarketplaceTransaction::getStatisticsAll');
 
+    // Unified endpoints for fetching data and statistics
     $routes->get('(:segment)', 'MarketplaceTransaction::index/$1');
     $routes->post('get-data/(:segment)', 'MarketplaceTransaction::getTransactions/$1');
     $routes->post('get-statistics/(:segment)', 'MarketplaceTransaction::getStatistics/$1');
