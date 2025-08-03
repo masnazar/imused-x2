@@ -31,8 +31,9 @@ class MarketplaceTransactionService
     /**
      * ✅ Rules Validasi
      */
-    public function getValidationRules(): array
+    public function getValidationRules(?string $platform = null): array
     {
+        // At the moment all platforms share the same rules.
         return [
             'order_number'  => 'required|string|max_length[100]',
             'date'          => 'required|valid_date',
@@ -40,6 +41,59 @@ class MarketplaceTransactionService
             'selling_price' => 'required|decimal',
             'hpp'           => 'required|decimal',
         ];
+    }
+
+    /**
+     * 🧹 Sanitize input berdasarkan platform
+     */
+    public function sanitizeInput(array $input, string $platform): array
+    {
+        $platform = strtolower($platform);
+
+        $sanitized = [
+            'date'            => ! empty($input['date']) ? date('Y-m-d', strtotime($input['date'])) : date('Y-m-d'),
+            'order_number'    => trim($input['order_number'] ?? ''),
+            'tracking_number' => trim($input['tracking_number'] ?? ''),
+            'store_name'      => trim($input['store_name'] ?? ''),
+            'brand_id'        => isset($input['brand_id']) ? (int) $input['brand_id'] : null,
+            'selling_price'   => $this->parseNumber($input['selling_price'] ?? 0),
+            'hpp'             => $this->parseNumber($input['hpp'] ?? 0),
+            'discount'        => $this->parseNumber($input['discount'] ?? 0),
+            'admin_fee'       => $this->parseNumber($input['admin_fee'] ?? 0),
+            'status'          => isset($input['status']) ? strtolower(trim($input['status'])) : 'pending',
+        ];
+
+        switch ($platform) {
+            case 'shopee':
+                // Shopee biasanya mengembalikan resi dengan huruf kecil
+                $sanitized['tracking_number'] = strtoupper($sanitized['tracking_number']);
+                break;
+            case 'tokopedia':
+                // Tokopedia menambahkan spasi pada nomor pesanan
+                $sanitized['order_number'] = str_replace(' ', '', strtoupper($sanitized['order_number']));
+                break;
+            case 'lazada':
+                // Lazada kadang mengirim nama toko dengan huruf kecil
+                $sanitized['store_name'] = ucwords(strtolower($sanitized['store_name']));
+                break;
+            case 'tiktokshop':
+                // Tidak ada aturan khusus saat ini
+                break;
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * 🔢 Bersihkan format angka menjadi float
+     */
+    private function parseNumber($value): float
+    {
+        if (is_string($value)) {
+            $value = preg_replace('/[^\d.-]/', '', $value);
+        }
+
+        return (float) $value;
     }
 
     /**
