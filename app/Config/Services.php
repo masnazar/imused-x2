@@ -51,7 +51,8 @@ class Services extends BaseService
         public static function binderbyteClient()
 {
     $client = \Config\Services::curlrequest([
-        'baseURI' => 'https://api.binderbyte.com/',
+        'baseURI'    => 'https://api.binderbyte.com/',
+        'http_errors' => false,
     ]);
     return $client;
 }

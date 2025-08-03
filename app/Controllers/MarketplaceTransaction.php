@@ -881,10 +881,10 @@ public function trackResi()
 
     $apiKey = env('BINDERBYTE_API_KEY'); // pastikan sudah diset di .env
 
-    $url = "https://api.binderbyte.com/v1/track?api_key={$apiKey}&courier={$courier}&awb={$awb}";
+    $url = "v1/track?api_key={$apiKey}&courier={$courier}&awb={$awb}";
 
     try {
-        $client = \Config\Services::curlrequest();
+        $client = service('binderbyteClient');
         $response = $client->get($url);
 
         $result = json_decode($response->getBody(), true);
@@ -930,7 +930,7 @@ public function trackResi()
 
       log_message('debug', '[🛠️ TRACKING UPDATE] Baris yang diupdate: ' . $model->db->affectedRows());
 
-      log_message('debug', '🔗 Request URL: ' . $url);
+      log_message('debug', '🔗 Request URL: https://api.binderbyte.com/' . $url);
         
 
         return $this->response->setJSON([
