@@ -417,8 +417,9 @@ public function importExcel(string $platform): ResponseInterface
             $spreadsheet = IOFactory::load($file->getTempName());
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, true);
+	// TODO: consider streaming to avoid loading entire sheet into memory
 
-            if (count($rows) > 10000) {
+            if (count($rows) > 4000) {
                 return $this->respond([
                     'status' => 'error',
                     'errors' => ['Jumlah baris melebihi batas maksimum 4000 baris.']
