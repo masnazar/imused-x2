@@ -259,8 +259,13 @@ public function store(string $platform): ResponseInterface
         }
         
         // 3. Strict Content Type
-        if (!$this->request->hasHeader('Content-Type', 'application/x-www-form-urlencoded')) {
-            return $this->failUnsupportedMediaType();
+        if (
+            $this->request->getHeaderLine('Content-Type') !== 'application/x-www-form-urlencoded'
+        ) {
+            return $this->fail(
+                'Unsupported Media Type',
+                ResponseInterface::HTTP_UNSUPPORTED_MEDIA_TYPE
+            );
         }
 
         // 4. Input Processing
