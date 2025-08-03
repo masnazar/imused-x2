@@ -147,12 +147,7 @@ class MarketplaceTransactionService
     $start = null;
     $end = null;
 
-    // ⛳ Kalau platform = 'all' pakai method khusus
-    if (strtolower($params['platform']) === 'all') {
-        return $this->getPaginatedTransactionsAll($params);
-    }
-
-    // 🔨 Base builder utama
+    // 🔨 Base builder utama (platform dapat berupa nama platform atau 'all')
     $builder = $this->repo->getBaseQuery($params['platform']);
 
     // 🎯 Filter by Brand
@@ -266,49 +261,6 @@ class MarketplaceTransactionService
 
         return implode('', $productDetails);
     }
-
-    // 📁 app/Services/MarketplaceTransactionService.php
-
-public function getPaginatedTransactionsAll(array $params): array
-{
-    try {
-        $builder = $this->repo->getBaseQueryAll($params);
-
-        $builderFiltered = clone $builder;
-        $recordsFiltered = $builderFiltered->countAllResults();
-
-        $data = $builder
-            ->limit((int) $params['length'], (int) $params['start'])
-            ->get()
-            ->getResultArray();
-
-        foreach ($data as &$row) {
-            $products = $this->repo->getTransactionProducts($row['id']);
-
-            $productStrings = array_map(function ($p) {
-                return "{$p['sku']}::{$p['nama_produk']}::{$p['quantity']}::{$p['hpp']}::{$p['unit_selling_price']}";
-            }, $products);
-
-            $row['products'] = $this->formatProducts(implode('||', $productStrings));
-            $row['processed_by'] = $row['processed_by_name'] ?? '-';
-        }
-
-        return [
-            'draw' => intval($params['draw']),
-            'recordsTotal' => $recordsFiltered,
-            'recordsFiltered' => $recordsFiltered,
-            'data' => $data
-        ];
-    } catch (\Throwable $e) {
-        log_message('error', '[MarketplaceTransactionService::getPaginatedTransactionsAll] ' . $e->getMessage());
-        return [
-            'draw' => $params['draw'] ?? 0,
-            'recordsTotal' => 0,
-            'recordsFiltered' => 0,
-            'data' => [],
-        ];
-    }
-}
 
 public function getStatisticsAll(array $filters): array
 {
