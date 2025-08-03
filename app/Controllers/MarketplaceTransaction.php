@@ -15,6 +15,7 @@ use App\Models\MarketplaceTransactionModel;
 use App\Models\MarketplaceDetailTransactionModel;
 use App\Models\InventoryModel;
 use App\Models\ProductModel;
+use App\Models\CourierModel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use CodeIgniter\I18n\Time;
 use App\Models\BrandModel;
@@ -947,5 +948,92 @@ public function trackResi()
         ]);
     }
 }
+
+    /**
+     * 🔄 Perbarui status resi berdasarkan ID transaksi
+     */
+    public function updateResiStatus(string $platform, int $id)
+    {
+        try {
+            $transactionModel = new MarketplaceTransactionModel();
+            $transaction = $transactionModel
+                ->where('platform', $platform)
+                ->find($id);
+
+            if (!$transaction) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Transaksi tidak ditemukan.',
+                    csrf_token() => csrf_hash()
+                ])->setStatusCode(404);
+            }
+
+            if (empty($transaction['tracking_number']) || empty($transaction['courier_id'])) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Data resi tidak lengkap.',
+                    csrf_token() => csrf_hash()
+                ])->setStatusCode(400);
+            }
+
+            $courierModel = new CourierModel();
+            $courier = $courierModel->find($transaction['courier_id']);
+
+            if (!$courier || empty($courier['courier_code'])) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Courier tidak ditemukan.',
+                    csrf_token() => csrf_hash()
+                ])->setStatusCode(400);
+            }
+
+            $apiKey = env('BINDERBYTE_API_KEY');
+            $courierCode = $courier['courier_code'];
+            $awb = $transaction['tracking_number'];
+            $url = "https://api.binderbyte.com/v1/track?api_key={$apiKey}&courier={$courierCode}&awb={$awb}";
+
+            $client = \Config\Services::curlrequest();
+            $response = $client->get($url);
+            $result = json_decode($response->getBody(), true);
+
+            if ($result['status'] !== 200) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => $result['message'] ?? 'Resi tidak ditemukan.',
+                    csrf_token() => csrf_hash()
+                ]);
+            }
+
+            $summary = $result['data']['summary'] ?? [];
+            $lastStatus = strtolower($summary['status'] ?? '');
+            $newStatus = 'Dalam Perjalanan';
+
+            if (str_contains($lastStatus, 'delivered')) {
+                $newStatus = 'Terkirim';
+            } elseif (str_contains($lastStatus, 'return')) {
+                $newStatus = 'Returned';
+            }
+
+            $transactionModel->update($id, [
+                'status'               => $newStatus,
+                'last_tracking_data'   => json_encode($result['data']),
+                'last_tracking_status' => strtoupper($summary['status'] ?? '-')
+            ]);
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'data'   => $result['data'],
+                csrf_token() => csrf_hash()
+            ]);
+        } catch (\Throwable $e) {
+            log_message('error', '[MarketplaceTransaction::updateResiStatus] ' . $e->getMessage());
+
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Gagal mengupdate status resi.',
+                csrf_token() => csrf_hash()
+            ])->setStatusCode(500);
+        }
+    }
 
 }
