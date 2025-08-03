@@ -18,7 +18,6 @@ use App\Models\ProductModel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use CodeIgniter\I18n\Time;
 use App\Models\BrandModel;
-use App\Helpers\ProductFormatter;
 use CodeIgniter\API\ResponseTrait;
 
 
