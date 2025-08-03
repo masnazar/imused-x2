@@ -102,8 +102,10 @@ public function index()
         $sheet = $spreadsheet->getActiveSheet();
         $rows = $sheet->toArray(null, true, true, true);
 
-        if (count($rows) > 4000) {
-            return $this->failValidationErrors(['Jumlah baris melebihi batas maksimum 4000.']);
+        if (count($rows) > MAX_IMPORT_ROWS_SOSCOM) {
+            return $this->failValidationErrors([
+                'Jumlah baris melebihi batas maksimum ' . number_format(MAX_IMPORT_ROWS_SOSCOM, 0, ',', '.') . '.'
+            ]);
         }
 
         $headerMap = [

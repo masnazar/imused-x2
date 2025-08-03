@@ -450,10 +450,10 @@ public function importExcel(string $platform): ResponseInterface
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, true);
 
-            if (count($rows) > 10000) {
+            if (count($rows) > MAX_IMPORT_ROWS_MARKETPLACE) {
                 return $this->respond([
                     'status' => 'error',
-                    'errors' => ['Jumlah baris melebihi batas maksimum 4000 baris.']
+                    'errors' => ['Jumlah baris melebihi batas maksimum ' . number_format(MAX_IMPORT_ROWS_MARKETPLACE, 0, ',', '.') . ' baris.']
                 ], 422);
             }
 

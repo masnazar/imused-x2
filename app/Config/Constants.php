@@ -77,3 +77,12 @@ defined('EXIT_USER_INPUT')     || define('EXIT_USER_INPUT', 7);     // invalid u
 defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database error
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
+
+// --------------------------------------------------------------------------
+// Import Excel Limits
+// --------------------------------------------------------------------------
+// These constants define the maximum number of rows allowed when importing
+// Excel files for various modules. Adjust these values to increase or
+// decrease the import limits without changing controller logic.
+defined('MAX_IMPORT_ROWS_SOSCOM') || define('MAX_IMPORT_ROWS_SOSCOM', 4000);
+defined('MAX_IMPORT_ROWS_MARKETPLACE') || define('MAX_IMPORT_ROWS_MARKETPLACE', 10000);
