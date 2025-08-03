@@ -178,12 +178,12 @@ $routes->group('marketplace-transactions', ['filter' => 'auth'], function ($rout
     $routes->post('update/(:segment)/(:num)', 'MarketplaceTransaction::update/$1/$2');
     $routes->get('detail/(:segment)/(:num)', 'MarketplaceTransaction::detail/$1/$2');
     $routes->post('delete/(:segment)/(:num)', 'MarketplaceTransaction::delete/$1/$2');
-    $routes->post('import/(:segment)', 'MarketplaceTransaction::importExcel/$1');
-    $routes->get('template/(:segment)', 'MarketplaceTransaction::downloadTemplate/$1');
-    $routes->get('confirm-import/(:segment)', 'MarketplaceTransaction::confirmImport/$1');
-    $routes->post('save-imported-data/(:segment)', 'MarketplaceTransaction::saveImportedData/$1');
-    $routes->post('track-resi', 'MarketplaceTransaction::trackResi');
-    $routes->post('update-resi/(:segment)/(:num)', 'MarketplaceTransaction::updateResiStatus/$1/$2');
+    $routes->post('import/(:segment)', 'MarketplaceTransactionImport::importExcel/$1');
+    $routes->get('template/(:segment)', 'MarketplaceTransactionImport::downloadTemplate/$1');
+    $routes->get('confirm-import/(:segment)', 'MarketplaceTransactionImport::confirmImport/$1');
+    $routes->post('save-imported-data/(:segment)', 'MarketplaceTransactionImport::saveImportedData/$1');
+    $routes->post('track-resi', 'MarketplaceTransactionTracking::trackResi');
+    $routes->post('update-resi/(:segment)/(:num)', 'MarketplaceTransactionTracking::updateResiStatus/$1/$2');
 });
 
 // ======================= FORECAST =======================
