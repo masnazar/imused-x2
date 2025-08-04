@@ -988,9 +988,9 @@ public function trackResi()
 }
 
     /**
-     * 🔄 Perbarui status resi berdasarkan ID transaksi
+     * 🔄 Perbarui status resi berdasarkan ID transaksi melalui API
      */
-    public function updateResiStatus(string $platform, int $id)
+    public function refreshResiStatus(string $platform, int $id)
     {
         try {
             $transactionModel = new MarketplaceTransactionModel();
@@ -1064,7 +1064,7 @@ public function trackResi()
                 csrf_token() => csrf_hash()
             ]);
         } catch (\Throwable $e) {
-            log_message('error', '[MarketplaceTransaction::updateResiStatus] ' . $e->getMessage());
+            log_message('error', '[MarketplaceTransaction::refreshResiStatus] ' . $e->getMessage());
 
             return $this->response->setJSON([
                 'status' => 'error',
